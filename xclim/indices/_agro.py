@@ -40,6 +40,7 @@ __all__ = [
     "chill_units",
     "cool_night_index",
     "corn_heat_units",
+    "day_full_bloom",
     "dryness_index",
     "effective_growing_degree_days",
     "hardiness_zones",
@@ -1681,3 +1682,16 @@ def chill_units(tas: xarray.DataArray, freq: str = "YS") -> xarray.DataArray:
     )
     cu = cu.where(tas.notnull())
     return cu.resample(time=freq).sum().assign_attrs(units="")
+
+
+@declare_units(tasmax="[temperature]")
+def day_full_bloom(
+    tasmax: xarray.DataArray,
+    date_bounds: tuple[str, str] = ("08-01", "09-30"),
+    freq: str = "YS",
+):
+    tasmax = convert_units_to(tasmax, "degC")
+    tasmax = (
+        tasmax.sel(time=tasmax.time.dt.month.isin([8, 9])).resample(time=freq).mean()
+    )
+    return (367 - 5.5 * tasmax).round()
