@@ -1700,14 +1700,8 @@ def day_full_bloom(
 
     Returns
     -------
-    xr.DataArray, [dimensionless]
-        {method} hardiness zones.
-        US sub-zones are denoted by using a half step. For example, Zone 4b is given as 4.5.
-        Values are given at the end of the averaging window.
-
-    References
-    ----------
-    :cite:cts:`usda_2012,dawson_plant_1991`
+    xr.DataArray, [unitless]
+        Day of the year of full bloom starting from January 1st.
     """
     tasmax = convert_units_to(tasmax, "degC")
     tasmax = (
