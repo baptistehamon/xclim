@@ -28,6 +28,7 @@ __all__ = [
     "daily_freezethaw_cycles",
     "daily_temperature_range",
     "daily_temperature_range_variability",
+    "day_full_bloom",
     "degree_days_exceedance_date",
     "extreme_temperature_range",
     "fire_season",
@@ -1518,4 +1519,16 @@ chill_units = TempHourlyWithIndexing(
     long_name="Chill units after the Utah Model",
     allowed_periods=["Y"],
     compute=indices.chill_units,
+)
+
+day_full_bloom = Temp(
+    title="Day of full bloom",
+    identifier="day_full_bloom",
+    units="",
+    cell_methods="time: sum",
+    long_name="Last day of full bloom",
+    description="Last day of full bloom for 'Delicious' apples computed using average maximum August-September "
+    "temperature according to the method of Hall et al. (2018).",
+    allowed_periods=["Y"],
+    compute=indices.day_full_bloom,
 )

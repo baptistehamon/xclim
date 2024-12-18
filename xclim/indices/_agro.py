@@ -1687,11 +1687,30 @@ def chill_units(tas: xarray.DataArray, freq: str = "YS") -> xarray.DataArray:
 @declare_units(tasmax="[temperature]")
 def day_full_bloom(
     tasmax: xarray.DataArray,
-    date_bounds: tuple[str, str] = ("08-01", "09-30"),
     freq: str = "YS",
-):
+) -> xarray.DataArray:
+    """Day of full bloom for apple.
+
+    Parameters
+    ----------
+    tasmax : xr.DataArray
+        Maximum temperature.
+    freq : str, optional
+        Resampling frequency.
+
+    Returns
+    -------
+    xr.DataArray, [dimensionless]
+        {method} hardiness zones.
+        US sub-zones are denoted by using a half step. For example, Zone 4b is given as 4.5.
+        Values are given at the end of the averaging window.
+
+    References
+    ----------
+    :cite:cts:`usda_2012,dawson_plant_1991`
+    """
     tasmax = convert_units_to(tasmax, "degC")
     tasmax = (
         tasmax.sel(time=tasmax.time.dt.month.isin([8, 9])).resample(time=freq).mean()
     )
-    return (367 - 5.5 * tasmax).round()
+    return (367 - 5.5 * tasmax).round().assign_attrs(units="")
