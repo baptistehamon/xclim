@@ -41,6 +41,7 @@ __all__ = [
     "chill_units",
     "cool_night_index",
     "corn_heat_units",
+    "day_full_bloom",
     "dryness_index",
     "effective_growing_degree_days",
     "hardiness_zones",
@@ -1712,3 +1713,29 @@ def chill_units(
         daily = cu.resample(time="1D").sum()
         cu = daily.where(daily > 0)
     return cu.resample(time=freq).sum().assign_attrs(units="")
+
+
+@declare_units(tasmax="[temperature]")
+def day_full_bloom(
+    tasmax: xarray.DataArray,
+    freq: str = "YS",
+) -> xarray.DataArray:
+    """Day of full bloom for apple.
+
+    Parameters
+    ----------
+    tasmax : xr.DataArray
+        Maximum temperature.
+    freq : str, optional
+        Resampling frequency.
+
+    Returns
+    -------
+    xr.DataArray, [unitless]
+        Day of the year of full bloom starting from January 1st.
+    """
+    tasmax = convert_units_to(tasmax, "degC")
+    tasmax = (
+        tasmax.sel(time=tasmax.time.dt.month.isin([8, 9])).resample(time=freq).mean()
+    )
+    return (367 - 5.5 * tasmax).round().assign_attrs(units="")
