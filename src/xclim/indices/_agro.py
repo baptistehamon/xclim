@@ -1726,7 +1726,7 @@ def chilling_hours(
 
     Parameters
     ----------
-    tasm : xarray.DataArray
+    tas : xarray.DataArray
         Mean hourly temperature.
     thresh : Quantified
         Chilling temperature.
