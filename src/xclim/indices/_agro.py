@@ -24,7 +24,7 @@ from xclim.indices._threshold import (
     first_day_temperature_above,
     first_day_temperature_below,
 )
-from xclim.indices.generic import aggregate_between_dates, get_zones
+from xclim.indices.generic import aggregate_between_dates, get_zones, threshold_count
 from xclim.indices.helpers import _gather_lat, day_lengths, resample_map
 from xclim.indices.stats import standardized_index
 
@@ -39,6 +39,7 @@ __all__ = [
     "biologically_effective_degree_days",
     "chill_portions",
     "chill_units",
+    "chilling_hours"
     "cool_night_index",
     "corn_heat_units",
     "day_full_bloom",
@@ -1739,3 +1740,35 @@ def day_full_bloom(
         tasmax.sel(time=tasmax.time.dt.month.isin([8, 9])).resample(time=freq).mean()
     )
     return (367 - 5.5 * tasmax).round().assign_attrs(units="")
+
+
+@declare_units(tas="[temperature]", thresh="[temperature]")
+def chilling_hours(
+    tas: xarray.DataArray, thresh: Quantified = "7 degC", freq: str = "YS", **indexer
+) -> xarray.DataArray:
+    r"""
+    Chilling hours index.
+
+    Number of hours where hourly temperatures are below a threshold temperature.
+
+    Parameters
+    ----------
+    tasm : xarray.DataArray
+        Mean hourly temperature.
+    thresh : Quantified
+        Chilling temperature.
+    freq : str
+        Resampling frequency.
+    **indexer : {dim: indexer}, optional
+        Indexing parameters to compute the frost days on a temporal subset of the data.
+        It accepts the same arguments as :py:func:`xclim.indices.generic.select_time`.
+
+    Returns
+    -------
+    xarray.DataArray, [time]
+        Chilling hours index.
+    """
+    frz = convert_units_to(thresh, tas)
+    sel = select_time(tas, **indexer)
+    out = threshold_count(sel, "<", frz, freq)
+    return to_agg_units(out, tas, "count")
