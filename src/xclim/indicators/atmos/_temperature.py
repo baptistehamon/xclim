@@ -19,6 +19,7 @@ __all__ = [
     "biologically_effective_degree_days",
     "chill_portions",
     "chill_units",
+    "chilling_hours",
     "cold_spell_days",
     "cold_spell_duration_index",
     "cold_spell_frequency",
@@ -1530,4 +1531,15 @@ chill_units = TempHourlyWithIndexing(
     long_name="Chill units after the Utah Model",
     allowed_periods=["Y"],
     compute=indices.chill_units,
+)
+
+chilling_hours = TempHourlyWithIndexing(
+    title="Chilling hours",
+    identifier="chilling_hours",
+    units="",
+    long_name="Number of hours where the hourly temperature is below {thresh}",
+    description="{freq} number of hours where the hourly temperature is below {thresh}.",
+    abstract="Number of hours where the hourly temperature is below a given threshold.",
+    cell_methods="time: sum over hours",
+    compute=indices.chilling_hours,
 )
