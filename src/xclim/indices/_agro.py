@@ -39,7 +39,7 @@ __all__ = [
     "biologically_effective_degree_days",
     "chill_portions",
     "chill_units",
-    "chilling_hours"
+    "chilling_hours",
     "cool_night_index",
     "corn_heat_units",
     "day_full_bloom",
