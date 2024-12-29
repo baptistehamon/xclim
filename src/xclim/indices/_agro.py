@@ -1717,8 +1717,7 @@ def chill_units(
 
 @declare_units(tas="[temperature]", thresh="[temperature]")
 def chilling_hours(
-    tas: xarray.DataArray, thresh: Quantified = "7 degC", freq: str = "YS", **indexer
-) -> xarray.DataArray:
+    tas: xarray.DataArray, thresh: Quantified = "7 degC", freq: str = "YS") -> xarray.DataArray:
     r"""
     Chilling hours index.
 
@@ -1742,6 +1741,5 @@ def chilling_hours(
         Chilling hours index.
     """
     frz = convert_units_to(thresh, tas)
-    sel = select_time(tas, **indexer)
-    out = threshold_count(sel, "<", frz, freq)
+    out = threshold_count(tas, "<", frz, freq)
     return to_agg_units(out, tas, "count")
