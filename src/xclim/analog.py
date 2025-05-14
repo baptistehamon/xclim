@@ -1,13 +1,12 @@
 """Spatial Analogues module."""
 
 # TODO: Hellinger distance
-# TODO: Mahalanobis distance
 # TODO: Comment on "significance" of results.
 # Code adapted from flyingpigeon.dissimilarity, Nov 2020.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -23,7 +22,9 @@ def spatial_analogs(
     target: xr.Dataset,
     candidates: xr.Dataset,
     dist_dim: str | Sequence[str] = "time",
-    method: str = "kldiv",
+    method: Literal[
+        "seuclidean", "nearest_neighbor", "zech_aslan", "kolmogorov_smirnov", "friedman_rafsky", "kldiv"
+    ] = "kldiv",
     **kwargs,
 ):
     r"""
@@ -44,7 +45,7 @@ def spatial_analogs(
         the dataset's `data_vars`.
     dist_dim : str
         The dimension over which the *distributions* are constructed. This can be a multi-index dimension.
-    method : {'seuclidean', 'nearest_neighbor', 'zech_aslan', 'kolmogorov_smirnov', 'friedman_rafsky', 'kldiv'}
+    method : {"seuclidean", "nearest_neighbor", "zech_aslan", "kolmogorov_smirnov", "friedman_rafsky", "kldiv"}
         Which method to use when computing the dissimilarity statistic.
     **kwargs : dict
         Any other parameter passed directly to the dissimilarity method.
@@ -61,9 +62,7 @@ def spatial_analogs(
     # Create the target DataArray
     # drop any (sub-)index along "dist_dim" that could conflict with target, and rename it.
     # The drop is the simplest solution that is compatible with both xarray <=2022.3.0 and >2022.3.1
-    candidate_array = candidates.to_array("_indices", "candidates").rename(
-        {dist_dim: "_dist_dim"}
-    )
+    candidate_array = candidates.to_array("_indices", "candidates").rename({dist_dim: "_dist_dim"})
     if isinstance(candidate_array.indexes["_dist_dim"], pd.MultiIndex):
         candidate_array = candidate_array.drop_vars(
             ["_dist_dim"] + candidate_array.indexes["_dist_dim"].names,
@@ -280,18 +279,18 @@ def zech_aslan(x: np.ndarray, y: np.ndarray, *, dmin: float = 1e-12) -> float:
 
     .. math::
 
-        e(X, Y) &= \left[\phi_{xx} + \phi_{yy} - \phi_{xy}\right] \\
-        \phi_{xy} &= \frac{1}{n m} \sum_{i = 1}^n \sum_{j = 1}^m R\left[SED(X_i, Y_j)\right] \\
-        \phi_{xx} &= \frac{1}{n^2} \sum_{i = 1}^n \sum_{j = i + 1}^n R\left[SED(X_i, X_j)\right] \\
-        \phi_{yy} &= \frac{1}{m^2} \sum_{i = 1}^m \sum_{j = i + 1}^m R\left[SED(X_i, Y_j)\right] \\
+       e(X, Y) &= \left[\phi_{xx} + \phi_{yy} - \phi_{xy}\right] \\
+       \phi_{xy} &= \frac{1}{n m} \sum_{i = 1}^n \sum_{j = 1}^m R\left[SED(X_i, Y_j)\right] \\
+       \phi_{xx} &= \frac{1}{n^2} \sum_{i = 1}^n \sum_{j = i + 1}^n R\left[SED(X_i, X_j)\right] \\
+       \phi_{yy} &= \frac{1}{m^2} \sum_{i = 1}^m \sum_{j = i + 1}^m R\left[SED(X_i, Y_j)\right] \\
 
     where :math:`X_i` denotes the i-th observation of :math:`X`. :math:`R` is a weight function and :math:`SED(A, B)`
     denotes the standardized Euclidean distance.
 
     .. math::
 
-        R(r) &= \left\{\begin{array}{r l} -\ln r & \text{for } r > d_{min} \\ -\ln d_{min} & \text{for } r \leq d_{min} \end{array}\right. \\
-        SED(X_i, Y_j) &= \sqrt{\sum_{k=1}^d \frac{\left(X_i(k) - Y_i(k)\right)^2}{\sigma_x(k)\sigma_y(k)}}
+       R(r) &= \left\{\begin{array}{r l} -\ln r & \text{for } r > d_{min} \\ -\ln d_{min} & \text{for } r \leq d_{min} \end{array}\right. \\
+       SED(X_i, Y_j) &= \sqrt{\sum_{k=1}^d \frac{\left(X_i(k) - Y_i(k)\right)^2}{\sigma_x(k)\sigma_y(k)}}
 
     where :math:`k` is a counter over dimensions (indices in the case of spatial analogs) and :math:`\sigma_x(k)` is the
     standard deviation of :math:`X` in dimension :math:`k`. Finally, :math:`d_{min}` is a cut-off to avoid poles when
@@ -334,7 +333,7 @@ def szekely_rizzo(x: np.ndarray, y: np.ndarray, *, standardize: bool = True) -> 
     y : ndarray (m,d)
         Candidate sample.
     standardize : bool
-        If True (default), the standardized euclidean norm is used, instead of the conventional one.
+        If True (default), the standardized Euclidean norm is used, instead of the conventional one.
 
     Returns
     -------
@@ -348,15 +347,15 @@ def szekely_rizzo(x: np.ndarray, y: np.ndarray, *, standardize: bool = True) -> 
 
     .. math::
 
-        e(X, Y) = \frac{n m}{n + m} \left[2\phi_{xy} − \phi_{xx} − \phi_{yy} \right]
+       e(X, Y) = \frac{n m}{n + m} \left[2\phi_{xy} − \phi_{xx} − \phi_{yy} \right]
 
     where
 
     .. math::
 
-        \phi_{xy} &= \frac{1}{n m} \sum_{i = 1}^n \sum_{j = 1}^m \left\Vert X_i − Y_j \right\Vert \\
-        \phi_{xx} &= \frac{1}{n^2} \sum_{i = 1}^n \sum_{j = 1}^n \left\Vert X_i − X_j \right\Vert \\
-        \phi_{yy} &= \frac{1}{m^2} \sum_{i = 1}^m \sum_{j = 1}^m \left\Vert X_i − Y_j \right\Vert \\
+       \phi_{xy} &= \frac{1}{n m} \sum_{i = 1}^n \sum_{j = 1}^m \left\Vert X_i − Y_j \right\Vert \\
+       \phi_{xx} &= \frac{1}{n^2} \sum_{i = 1}^n \sum_{j = 1}^n \left\Vert X_i − X_j \right\Vert \\
+       \phi_{yy} &= \frac{1}{m^2} \sum_{i = 1}^m \sum_{j = 1}^m \left\Vert X_i − Y_j \right\Vert \\
 
     and where :math:`\Vert\cdot\Vert` denotes the Euclidean norm, :math:`X_i` denotes the i-th observation of :math:`X`.
     When `standardized=False`, this corresponds to the :math:`T` test of :cite:t:`rizzo_energy_2016` (p. 28) and to the
@@ -432,7 +431,7 @@ def friedman_rafsky(x: np.ndarray, y: np.ndarray) -> float:
 
 
 @metric
-def kolmogorov_smirnov(x: np.ndarray, y: np.ndarray) -> float:
+def kolmogorov_smirnov(x: np.ndarray, y: np.ndarray) -> float:  # noqa: E501
     """
     Compute the Kolmogorov-Smirnov statistic applied to two multivariate samples as described by Fasano and Franceschini.
 
@@ -497,9 +496,7 @@ def kolmogorov_smirnov(x: np.ndarray, y: np.ndarray) -> float:
 
 
 @metric
-def kldiv(
-    x: np.ndarray, y: np.ndarray, *, k: int | Sequence[int] = 1
-) -> float | Sequence[float]:
+def kldiv(x: np.ndarray, y: np.ndarray, *, k: int | Sequence[int] = 1) -> float | Sequence[float]:
     r"""
     Compute the Kullback-Leibler divergence between two multivariate samples.
 
@@ -507,7 +504,7 @@ def kldiv(
 
     .. math::
 
-        D(P||Q) = \frac{d}{n} \sum_i^n \log\left\{\frac{r_k(x_i)}{s_k(x_i)}\right\} + \log\left\{\frac{m}{n-1}\right\}
+       D(P||Q) = \frac{d}{n} \sum_i^n \log\left\{\frac{r_k(x_i)}{s_k(x_i)}\right\} + \log\left\{\frac{m}{n-1}\right\}
 
     where :math:`r_k(x_i)` and :math:`s_k(x_i)` are, respectively, the Euclidean distance to the kth neighbour of
     :math:`x_i` in the x array (excepting :math:`x_i`) and in the y array. This method is scale-dependent.
@@ -529,22 +526,23 @@ def kldiv(
 
     Notes
     -----
-    In information theory, the Kullback–Leibler divergence :cite:p:`perez-cruz_kullback-leibler_2008` is a non-symmetric
-    measure of the difference between two probability distributions P and Q, where P is the "true" distribution and Q an
-    approximation. This nuance is important because :math:`D(P||Q)` is not equal to :math:`D(Q||P)`.
+    In information theory, the Kullback–Leibler divergence :cite:p:`perez-cruz_kullback-leibler_2008` is
+    a non-symmetric measure of the difference between two probability distributions P and Q, where P is the
+    "true" distribution and Q an approximation.
+    This nuance is important because :math:`D(P||Q)` is not equal to :math:`D(Q||P)`.
 
     For probability distributions P and Q of a continuous random variable, the K–L  divergence is defined as:
 
     .. math::
 
-        D_{KL}(P||Q) = \int p(x) \log\left(\frac{p(x)}{q(x)}\right) dx
+       D_{KL}(P||Q) = \int p(x) \log\left(\frac{p(x)}{q(x)}\right) dx
 
     This formula assumes we have a representation of the probability densities :math:`p(x)` and :math:`q(x)`.
     In many cases, we only have samples from the distribution, and most methods first estimate the densities from the
     samples and then proceed to compute the K-L divergence. In :cite:t:`perez-cruz_kullback-leibler_2008`, the author
-    proposes an algorithm to estimate the K-L divergence directly from the sample using an empirical CDF. Even though the
-    CDFs do not converge to their true values, the paper proves that the K-L divergence almost surely does converge to
-    its true value.
+    proposes an algorithm to estimate the K-L divergence directly from the sample using an empirical CDF.
+    Even though the CDFs do not converge to their true values, the paper proves that the K-L divergence almost
+    surely does converge to its true value.
 
     References
     ----------
@@ -582,11 +580,50 @@ def kldiv(
         # Hence, we take the k'th + 1, which in 0-based indexing is given by
         # index k.
         with np.errstate(divide="ignore"):
-            ki_calc = -np.log(r[:, ki] / s[:, ki - 1]).sum() * d / nx + np.log(
-                ny / (nx - 1.0)
-            )
+            ki_calc = -np.log(r[:, ki] / s[:, ki - 1]).sum() * d / nx + np.log(ny / (nx - 1.0))
         out.append(ki_calc)
 
     if mk:
         return out
     return out[0]
+
+
+@metric
+def mahalanobis(x: np.ndarray, y: np.ndarray, *, VI: np.ndarray | None = None) -> np.float64:
+    """
+    Compute the Mahalanobis distance.
+
+    This method is scale-invariant.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Reference sample (n,d).
+    y : np.ndarray
+        Candidate sample (m,d).
+    VI : np.ndarray, optional
+        Inverse of the covariance matrix used in the Mahalanobis Distance (d,d). Optional.
+
+    Returns
+    -------
+    numpy.float64
+        Mahalanobis Distance between the mean of the samples.
+
+    Notes
+    -----
+    With no Inverse of the covariance matrix provided, the covariance matrix of the set of observation vectors of the reference sample is used.
+    The pseudoinverse is used if the covariance matrix is singular.
+
+    References
+    ----------
+    :cite:cts:`Deza2016`
+    """
+    if not isinstance(VI, np.ndarray):
+        if VI is not None:
+            raise AttributeError("VI not a matrix")
+        v = np.cov(x, rowvar=False)
+        try:
+            VI = np.linalg.inv(v)
+        except np.linalg.LinAlgError:
+            VI = np.linalg.pinv(v)
+    return spatial.distance.mahalanobis(x.mean(axis=0), y.mean(axis=0), VI)

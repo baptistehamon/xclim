@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 import xarray
@@ -63,9 +63,7 @@ _np_ops = {
 
 
 @declare_units(tasmin="[temperature]", tasmax="[temperature]")
-def isothermality(
-    tasmin: xarray.DataArray, tasmax: xarray.DataArray, freq: str = "YS"
-) -> xarray.DataArray:
+def isothermality(tasmin: xarray.DataArray, tasmax: xarray.DataArray, freq: str = "YS") -> xarray.DataArray:
     r"""
     Isothermality.
 
@@ -104,9 +102,7 @@ def isothermality(
 
 
 @declare_units(tas="[temperature]")
-def temperature_seasonality(
-    tas: xarray.DataArray, freq: str = "YS"
-) -> xarray.DataArray:
+def temperature_seasonality(tas: xarray.DataArray, freq: str = "YS") -> xarray.DataArray:
     r"""
     Temperature seasonality (coefficient of variation).
 
@@ -218,7 +214,7 @@ def precip_seasonality(pr: xarray.DataArray, freq: str = "YS") -> xarray.DataArr
 @declare_units(tas="[temperature]")
 def tg_mean_warmcold_quarter(
     tas: xarray.DataArray,
-    op: str,
+    op: Literal["warmest", "coldest"],
     freq: str = "YS",
 ) -> xarray.DataArray:
     r"""
@@ -232,8 +228,10 @@ def tg_mean_warmcold_quarter(
     ----------
     tas : xarray.DataArray
         Mean temperature at daily, weekly, or monthly frequency.
-    op : str {'warmest', 'coldest'}
-        Operation to perform: 'warmest' calculate the warmest quarter; 'coldest' calculate the coldest quarter.
+    op : {'warmest', 'coldest'}
+        Operation to perform:
+        'wettest' calculates the wettest quarter.
+        'driest' calculates the driest quarter.
     freq : str
         Resampling frequency.
 
@@ -265,9 +263,7 @@ def tg_mean_warmcold_quarter(
     out = _to_quarter(tas=tas)
 
     if op not in ["warmest", "coldest"]:
-        raise NotImplementedError(
-            f'op parameter ({op}) may only be one of "warmest", "coldest"'
-        )
+        raise NotImplementedError(f'op parameter ({op}) may only be one of "warmest", "coldest"')
     oper = _np_ops[op]
 
     out = select_resample_op(out, oper, freq)
@@ -279,7 +275,7 @@ def tg_mean_warmcold_quarter(
 def tg_mean_wetdry_quarter(
     tas: xarray.DataArray,
     pr: xarray.DataArray,
-    op: str,
+    op: Literal["wettest", "driest", "dryest"],
     freq: str = "YS",
 ) -> xarray.DataArray:
     r"""
@@ -295,8 +291,10 @@ def tg_mean_wetdry_quarter(
         Mean temperature at daily, weekly, or monthly frequency.
     pr : xarray.DataArray
         Total precipitation rate at daily, weekly, or monthly frequency.
-    op : {'wettest', 'driest'}
-        Operation to perform: 'wettest' calculate for the wettest quarter; 'driest' calculate for the driest quarter.
+    op : {"wettest", "driest"}
+        Operation to perform:
+        'wettest' calculates the wettest quarter.
+        'driest' calculates the driest quarter.
     freq : str
         Resampling frequency.
 
@@ -309,7 +307,7 @@ def tg_mean_wetdry_quarter(
     -----
     According to the ANUCLIM user-guide (:cite:t:`xu_anuclim_2010`, ch. 6), input values should be at a weekly
     (or monthly) frequency. However, the xclim.indices implementation here will calculate the result with input data
-    with daily frequency as well. As such weekly or monthly input values, if desired, should be calculated prior to
+    with daily frequency as well. As such, weekly or monthly input values, if desired, should be calculated before
     calling the function.
 
     References
@@ -322,9 +320,7 @@ def tg_mean_wetdry_quarter(
     pr_qrt = _to_quarter(pr=pr)
 
     if op not in ["wettest", "driest", "dryest"]:
-        raise NotImplementedError(
-            f'op parameter ({op}) may only be one of "wettest" or "driest"'
-        )
+        raise NotImplementedError(f'op parameter ({op}) may only be one of "wettest" or "driest"')
     xr_op = _xr_argops[op]
 
     out = _from_other_arg(criteria=pr_qrt, output=tas_qrt, op=xr_op, freq=freq)
@@ -333,7 +329,7 @@ def tg_mean_wetdry_quarter(
 
 @declare_units(pr="[precipitation]")
 def prcptot_wetdry_quarter(
-    pr: xarray.DataArray, op: str, freq: str = "YS"
+    pr: xarray.DataArray, op: Literal["wettest", "driest", "dryest"], freq: str = "YS"
 ) -> xarray.DataArray:
     r"""
     Total precipitation of wettest/driest quarter.
@@ -346,8 +342,10 @@ def prcptot_wetdry_quarter(
     ----------
     pr : xarray.DataArray
         Total precipitation rate at daily, weekly, or monthly frequency.
-    op : {'wettest', 'driest'}
-        Operation to perform :  'wettest' calculate the wettest quarter ; 'driest' calculate the driest quarter.
+    op : {"wettest", "driest"}
+        Operation to perform:
+        'wettest' calculates the wettest quarter.
+        'driest' calculates the driest quarter.
     freq : str
         Resampling frequency.
 
@@ -360,7 +358,7 @@ def prcptot_wetdry_quarter(
     -----
     According to the ANUCLIM user-guide (:cite:t:`xu_anuclim_2010`, ch. 6), input values should be at a weekly
     (or monthly) frequency. However, the xclim.indices implementation here will calculate the result with input data
-    with daily frequency as well. As such weekly or monthly input values, if desired, should be calculated prior to
+    with daily frequency as well. As such, weekly or monthly input values, if desired, should be calculated before
     calling the function.
 
     References
@@ -379,9 +377,7 @@ def prcptot_wetdry_quarter(
     pr_qrt = _to_quarter(pr=pr)
 
     if op not in ["wettest", "driest", "dryest"]:
-        raise NotImplementedError(
-            f'op parameter ({op}) may only be one of "wettest" or "driest"'
-        )
+        raise NotImplementedError(f'op parameter ({op}) may only be one of "wettest" or "driest"')
     op = _np_ops[op]
 
     out = select_resample_op(pr_qrt, op, freq)
@@ -393,7 +389,7 @@ def prcptot_wetdry_quarter(
 def prcptot_warmcold_quarter(
     pr: xarray.DataArray,
     tas: xarray.DataArray,
-    op: str,
+    op: Literal["warmest", "coldest"],
     freq: str = "YS",
 ) -> xarray.DataArray:
     r"""
@@ -409,8 +405,10 @@ def prcptot_warmcold_quarter(
         Total precipitation rate at daily, weekly, or monthly frequency.
     tas : xarray.DataArray
         Mean temperature at daily, weekly, or monthly frequency.
-    op : {'warmest', 'coldest'}
-        Operation to perform: 'warmest' calculate for the warmest quarter; 'coldest' calculate for the coldest quarter.
+    op : {"warmest", "coldest"}
+        Operation to perform:
+        "warmest" calculates for the warmest quarter;
+        "coldest" calculates for the coldest quarter.
     freq : str
         Resampling frequency.
 
@@ -423,7 +421,7 @@ def prcptot_warmcold_quarter(
     -----
     According to the ANUCLIM user-guide (:cite:t:`xu_anuclim_2010`, ch. 6), input values should be at a weekly
     (or monthly) frequency. However, the xclim.indices implementation here will calculate the result with input data
-    with daily frequency as well. As such weekly or monthly input values, if desired, should be calculated prior to
+    with daily frequency as well. As such, weekly or monthly input values, if desired, should be calculated prior to
     calling the function.
 
     References
@@ -436,9 +434,7 @@ def prcptot_warmcold_quarter(
     pr_qrt = _to_quarter(pr=pr)
 
     if op not in ["warmest", "coldest"]:
-        raise NotImplementedError(
-            f'op parameter ({op}) may only be one of "warmest", "coldest"'
-        )
+        raise NotImplementedError(f'op parameter ({op}) may only be one of "warmest", "coldest"')
     xr_op = _xr_argops[op]
 
     out = _from_other_arg(criteria=tas_qrt, output=pr_qrt, op=xr_op, freq=freq)
@@ -447,14 +443,12 @@ def prcptot_warmcold_quarter(
 
 
 @declare_units(pr="[precipitation]", thresh="[precipitation]")
-def prcptot(
-    pr: xarray.DataArray, thresh: Quantified = "0 mm/d", freq: str = "YS"
-) -> xarray.DataArray:
+def prcptot(pr: xarray.DataArray, thresh: Quantified = "0 mm/d", freq: str = "YS") -> xarray.DataArray:
     r"""
     Accumulated total precipitation.
 
-    The total accumulated precipitation from days where precipitation exceeds a given amount. A threshold is provided in
-    order to allow the option of reducing the impact of days with trace precipitation amounts on period totals.
+    The total accumulated precipitation from days where precipitation exceeds a given amount. A threshold is provided
+    to allow the option of reducing the impact of days with trace precipitation amounts on period totals.
 
     Parameters
     ----------
@@ -478,7 +472,7 @@ def prcptot(
 
 @declare_units(pr="[precipitation]")
 def prcptot_wetdry_period(
-    pr: xarray.DataArray, *, op: str, freq: str = "YS"
+    pr: xarray.DataArray, *, op: Literal["wettest", "driest", "dryest"], freq: str = "YS"
 ) -> xarray.DataArray:
     r"""
     Precipitation of the wettest/driest day, week, or month, depending on the time step.
@@ -489,8 +483,10 @@ def prcptot_wetdry_period(
     ----------
     pr : xarray.DataArray
         Total precipitation flux [mm d-1], [mm week-1], [mm month-1] or similar.
-    op : {'wettest', 'driest'}
-        Operation to perform :  'wettest' calculate the wettest period ; 'driest' calculate the driest period.
+    op : {"wettest", "driest"}
+        Operation to perform:
+        "wettest" calculates the wettest quarter.
+        "driest" calculates the driest quarter.
     freq : str
         Resampling frequency.
 
@@ -503,7 +499,7 @@ def prcptot_wetdry_period(
     -----
     According to the ANUCLIM user-guide (:cite:t:`xu_anuclim_2010`, ch. 6), input values should be at a weekly
     (or monthly) frequency. However, the xclim.indices implementation here will calculate the result with input data
-    with daily frequency as well. As such weekly or monthly input values, if desired, should be calculated prior to
+    with daily frequency as well. As such, weekly or monthly input values, if desired, should be calculated prior to
     calling the function.
 
     References
@@ -513,9 +509,7 @@ def prcptot_wetdry_period(
     pram = rate2amount(pr)
 
     if op not in ["wettest", "driest", "dryest"]:
-        raise NotImplementedError(
-            f'op parameter ({op}) may only be one of "wettest" or "driest"'
-        )
+        raise NotImplementedError(f'op parameter ({op}) may only be one of "wettest" or "driest"')
     op = _np_ops[op]
 
     pwp: xarray.DataArray = getattr(pram.resample(time=freq), op)(dim="time")
@@ -530,10 +524,9 @@ def _anuclim_coeff_var(arr: xarray.DataArray, freq: str = "YS") -> xarray.DataAr
     return std / mu
 
 
-def _from_other_arg(
-    criteria: xarray.DataArray, output: xarray.DataArray, op: Callable, freq: str
-) -> xarray.DataArray:
-    """Pick values from output based on operation returning an index from criteria.
+def _from_other_arg(criteria: xarray.DataArray, output: xarray.DataArray, op: Callable, freq: str) -> xarray.DataArray:
+    """
+    Pick values from output based on operation returning an index from criteria.
 
     Parameters
     ----------
@@ -542,7 +535,7 @@ def _from_other_arg(
     output : xarray.DataArray
         Series to be indexed.
     op : Callable
-        Function returning an index, for example: `np.argmin`, `np.argmax`, `np.nanargmin`, `np.nanargmax`.
+        Function returning an index, for example, `np.argmin`, `np.argmax`, `np.nanargmin`, `np.nanargmax`.
     freq : str
         Temporal grouping.
 
@@ -606,18 +599,14 @@ def _to_quarter(
             # Accumulate on a week
             # Ensure units are back to a "rate" for rate2amount below
             ts_var = precip_accumulation(ts_var, freq="7D")
-            ts_var = convert_units_to(ts_var, "mm", context="hydro").assign_attrs(
-                units="mm/week"
-            )
+            ts_var = convert_units_to(ts_var, "mm", context="hydro").assign_attrs(units="mm/week")
         freq_upper = "W"
     if freq_upper.startswith("W"):
         window = 13
     elif freq_upper.startswith("M"):
         window = 3
     else:
-        raise NotImplementedError(
-            f'Unknown input time frequency "{freq}": must be one of "D", "W" or "M".'
-        )
+        raise NotImplementedError(f'Unknown input time frequency "{freq}": must be one of "D", "W" or "M".')
 
     ts_var = ensure_chunk_size(ts_var, time=np.ceil(window / 2))
     if tas is not None:

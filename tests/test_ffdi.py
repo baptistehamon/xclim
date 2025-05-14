@@ -11,8 +11,6 @@ from xclim.indices.fire import (
     mcarthur_forest_fire_danger_index,
 )
 
-data_url = "ERA5/daily_surface_cancities_1990-1993.nc"
-
 
 class TestFFDI:
     @pytest.mark.parametrize(
@@ -52,18 +50,14 @@ class TestFFDI:
             ),
         ],
     )
-    def test_keetch_byram_drought_index(
-        self, p, t, pa, k0, exp, pr_series, tasmax_series
-    ):
+    def test_keetch_byram_drought_index(self, p, t, pa, k0, exp, pr_series, tasmax_series):
         """Compare output to calculation by hand"""
         pr = pr_series(p, units="mm/day")
         tasmax = tasmax_series(t, units="degC")
         pr_annual = xr.DataArray(pa, attrs={"units": "mm/year"})
         kbdi0 = xr.DataArray(k0, attrs={"units": "mm/day"})
 
-        kbdi_final = keetch_byram_drought_index(pr, tasmax, pr_annual, kbdi0).isel(
-            time=-1
-        )
+        kbdi_final = keetch_byram_drought_index(pr, tasmax, pr_annual, kbdi0).isel(time=-1)
         np.testing.assert_allclose(kbdi_final, exp, atol=1e-5)
 
     @pytest.mark.parametrize(
@@ -120,9 +114,7 @@ class TestFFDI:
         df = griffiths_drought_factor(pr, smd, "xlim").isel(time=slice(19, None))
         np.testing.assert_allclose(df, exp, atol=1e-5)
 
-    def test_mcarthur_forest_fire_danger_index(
-        self, pr_series, tasmax_series, hurs_series, sfcWind_series
-    ):
+    def test_mcarthur_forest_fire_danger_index(self, pr_series, tasmax_series, hurs_series, sfcWind_series):
         """Compare output to calculation by hand"""
         D = pr_series(range(1, 11), units="")  # This is probably not good practice?
         T = tasmax_series(range(30, 40), units="degC")
@@ -130,16 +122,14 @@ class TestFFDI:
         V = sfcWind_series(range(10, 20))
 
         # Compare FFDI to values calculated using original arrangement of the FFDI:
-        exp = 2.0 * np.exp(
-            -0.450 + 0.987 * np.log(D) - 0.0345 * H + 0.0338 * T + 0.0234 * V
-        )
+        exp = 2.0 * np.exp(-0.450 + 0.987 * np.log(D) - 0.0345 * H + 0.0338 * T + 0.0234 * V)
         ffdi = mcarthur_forest_fire_danger_index(D, T, H, V)
         np.testing.assert_allclose(ffdi, exp, rtol=1e-6)
 
     @pytest.mark.slow
     @pytest.mark.parametrize("init_kbdi", [True, False])
     @pytest.mark.parametrize("limiting_func", ["xlim", "discrete"])
-    def test_ffdi_indicators(self, open_dataset, init_kbdi, limiting_func):
+    def test_ffdi_indicators(self, nimbus, init_kbdi, limiting_func):
         """Test the FFDI indicators using real data"""
         # I couldn't find any high quality data or code to test against. I considered
         # the CEMS GEFF dataset, and the R packages ClimInd and ecbtools but all use
@@ -147,7 +137,7 @@ class TestFFDI:
         # think reflect the modern literature.
         # For now, we just test that the indicators run using real data and that the
         # outputs look sensible
-        test_data = open_dataset(data_url)
+        test_data = xr.open_dataset(nimbus.fetch("ERA5/daily_surface_cancities_1990-1993.nc"))
 
         pr_annual = test_data["pr"].resample(time="YS").mean().mean("time")
         pr_annual.attrs["units"] = test_data["pr"].attrs["units"]
@@ -158,9 +148,7 @@ class TestFFDI:
         else:
             kbdi0 = None
 
-        kbdi = atmos.keetch_byram_drought_index(
-            test_data["pr"], test_data["tasmax"], pr_annual, kbdi0
-        )
+        kbdi = atmos.keetch_byram_drought_index(test_data["pr"], test_data["tasmax"], pr_annual, kbdi0)
         assert (kbdi >= 0).all()
         assert (kbdi <= 203.2).all()
         assert kbdi.shape == test_data["pr"].shape

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+import xarray as xr
 
 from xclim import indices as xci
+from xclim import land
+from xclim.core.units import convert_units_to
 
 
 class TestBaseFlowIndex:
@@ -21,6 +25,53 @@ class TestRBIndex:
         q = q_series(a)
         out = xci.rb_flashiness_index(q)
         np.testing.assert_array_equal(out, 2)
+
+
+class TestStandardizedStreamflow:
+    @pytest.mark.slow
+    def test_3d_data_with_nans(self, nimbus):
+        # test with data
+        ds = xr.open_dataset(nimbus.fetch("Raven/q_sim.nc"))
+        q = ds.q_obs.sel(time=slice("2008")).rename("q")
+        qMM = convert_units_to(q, "mm**3/s", context="hydro")  # noqa
+        # put a nan somewhere
+        qMM.values[10] = np.nan
+        q.values[10] = np.nan
+
+        out1 = land.standardized_streamflow_index(
+            q,
+            freq="MS",
+            window=1,
+            dist="genextreme",
+            method="APP",
+            fitkwargs={"floc": 0},
+        )
+        out2 = land.standardized_streamflow_index(
+            qMM,
+            freq="MS",
+            window=1,
+            dist="genextreme",
+            method="APP",
+            fitkwargs={"floc": 0},
+        )
+        np.testing.assert_array_almost_equal(out1, out2, 3)
+
+    @pytest.mark.slow
+    def test_3d_data_with_nans_value(self, nimbus):
+        # test with data
+        ds = xr.open_dataset(nimbus.fetch("Raven/q_sim.nc"))
+        q = ds.q_obs.sel(time=slice("2008", "2018")).rename("q")
+        q[{"time": 10}] = np.nan
+
+        out1 = land.standardized_streamflow_index(
+            q,
+            freq=None,
+            window=1,
+            dist="genextreme",
+            method="APP",
+            fitkwargs={"floc": 0},
+        )
+        assert np.isnan(out1[{"time": 10}])
 
 
 class TestSnwMax:

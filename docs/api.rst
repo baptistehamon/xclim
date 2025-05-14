@@ -80,49 +80,15 @@ Units Handling Submodule
 SDBA Module
 ===========
 
-.. automodule:: xclim.sdba.adjustment
-   :members:
-   :exclude-members: BaseAdjustment
-   :special-members:
-   :show-inheritance:
-   :noindex:
+.. warning::
 
-.. automodule:: xclim.sdba.processing
-   :members:
-   :noindex:
+    The `xclim.sdba` module was split from the library in `xclim==0.57` in order to facilitate development and effective maintenance of the SDBA utilities. This functionality is now available in the `xsdba` package. While the package aims to maintain compatibility with `xclim`, some algorithms have been slightly modified.
 
-.. automodule:: xclim.sdba.detrending
-   :members:
-   :show-inheritance:
-   :exclude-members: BaseDetrend
-   :noindex:
+    For convenience, the `xclim.sdba` module will still available exposing the functionality of the `xsdba` package. This may change in the future.
 
-.. automodule:: xclim.sdba.utils
-   :members:
-   :noindex:
+.. note::
 
-.. autoclass:: xclim.sdba.base.Grouper
-   :members:
-   :class-doc-from: init
-   :noindex:
-
-.. automodule:: xclim.sdba.nbutils
-   :members:
-   :noindex:
-
-.. automodule:: xclim.sdba.loess
-   :members:
-   :noindex:
-
-.. automodule:: xclim.sdba.properties
-   :members:
-   :exclude-members: StatisticalProperty
-   :noindex:
-
-.. automodule:: xclim.sdba.measures
-   :members:
-   :exclude-members: StatisticalMeasure
-   :noindex:
+    For more information, the documentation is available at the following link: :doc:`xsdba API <xsdba:api>`
 
 .. _spatial-analogues-api:
 
@@ -153,16 +119,20 @@ Spatial Analogues Module
 .. autofunction:: xclim.analog.zech_aslan
    :noindex:
 
+.. autofunction:: xclim.analog.mahalanobis
+   :noindex:
+
 Subset Module
 =============
 
 .. warning::
+
     The `xclim.subset` module was removed in `xclim==0.40`. Subsetting is now offered via `clisops.core.subset`.
     The subsetting functions offered by `clisops` are available at the following link: :doc:`CLISOPS core subsetting API <clisops:api>`
 
 .. note::
-    For more information about `clisops` refer to their documentation here:
-    :doc:`CLISOPS documentation <clisops:readme>`
+
+    For more information about `clisops`, please refer to the documentation at the following link: :doc:`CLISOPS documentation <clisops:readme>`
 
 Other Utilities
 ===============
@@ -215,29 +185,15 @@ Bootstrapping Algorithms for Indicators Submodule
 SDBA Utilities
 --------------
 
-.. automodule:: xclim.sdba.base
-   :members:
-   :show-inheritance:
-   :exclude-members: Grouper
-   :noindex:
+.. warning::
 
-.. autoclass:: xclim.sdba.detrending.BaseDetrend
-   :members:
-   :noindex:
+    The `xclim.sdba` module was split from the library in `xclim==0.57` in order to facilitate development and effective maintenance of the SDBA utilities. This functionality is now available in the `xsdba` package. While the package aims to maintain compatibility with `xclim`, some algorithms have been slightly modified.
 
-.. autoclass:: xclim.sdba.adjustment.TrainAdjust
-   :members:
-   :noindex:
+    For convenience, the `xclim.sdba` module will still available exposing the functionality of the `xsdba` package. This may change in the future.
 
-.. autoclass:: xclim.sdba.adjustment.Adjust
-   :members:
-   :noindex:
+.. note::
 
-.. autofunction:: xclim.sdba.properties.StatisticalProperty
-   :noindex:
-
-.. autofunction:: xclim.sdba.measures.StatisticalMeasure
-   :noindex:
+    For more information about `xsdba`, please refer to the documentation at the following link: :doc:`xsdba API <xsdba:api>`
 
 .. _`spatial-analogues-developer-api`:
 

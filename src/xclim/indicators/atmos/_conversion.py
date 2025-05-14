@@ -8,6 +8,7 @@ from xclim.core.indicator import Indicator
 from xclim.core.utils import InputKind
 
 __all__ = [
+    "clearness_index",
     "corn_heat_units",
     "heat_index",
     "humidex",
@@ -24,6 +25,7 @@ __all__ = [
     "specific_humidity_from_dewpoint",
     "tg",
     "universal_thermal_climate_index",
+    "vapor_pressure_deficit",
     "water_budget",
     "water_budget_from_tas",
     "wind_chill_index",
@@ -112,7 +114,7 @@ wind_speed_from_vector = Converter(
     cell_methods="",
     abstract="Calculation of the magnitude and direction of the wind speed "
     "from the two components west-east and south-north.",
-    compute=indices.uas_vas_2_sfcwind,
+    compute=indices.uas_vas_to_sfcwind,
 )
 
 
@@ -130,7 +132,7 @@ wind_vector_from_speed = Converter(
     cell_methods="",
     abstract="Calculation of the two components (west-east and north-south) of the wind "
     "from the magnitude of its speed and direction of origin.",
-    compute=indices.sfcwind_2_uas_vas,
+    compute=indices.sfcwind_to_uas_vas,
 )
 
 wind_power_potential = Converter(
@@ -270,6 +272,26 @@ specific_humidity_from_dewpoint = Converter(
     compute=indices.specific_humidity_from_dewpoint,
 )
 
+
+vapor_pressure_deficit = Converter(
+    title="Water vapour pressure deficit",
+    identifier="vapor_pressure_deficit",
+    units="Pa",
+    long_name='Vapour pressure deficit ("{method}" method)',
+    standard_name="water_vapor_saturation_deficit_in_air",
+    description=lambda **kws: (
+        "The difference between the saturation vapour pressure and the actual vapour pressure,"
+        "calculated from temperature and relative humidity according to the {method} method."
+    )
+    + (
+        " The computation was done in reference to ice for temperatures below {ice_thresh}."
+        if kws["ice_thresh"] is not None
+        else ""
+    ),
+    abstract="Difference between the saturation vapour pressure and the actual vapour pressure.",
+    compute=indices.vapor_pressure_deficit,
+)
+
 snowfall_approximation = Converter(
     title="Snowfall approximation",
     identifier="prsn",
@@ -369,9 +391,7 @@ water_budget = Converter(
     description=(
         "Precipitation minus potential evapotranspiration as a measure of an approximated surface water budget."
     ),
-    abstract=(
-        "Precipitation minus potential evapotranspiration as a measure of an approximated surface water budget."
-    ),
+    abstract=("Precipitation minus potential evapotranspiration as a measure of an approximated surface water budget."),
     compute=indices.water_budget,
     parameters={"method": "dummy"},
 )
@@ -442,4 +462,14 @@ longwave_upwelling_radiation_from_net_downwelling = Converter(
     "and downwelling surface longwave fluxes.",
     var_name="rlus",
     compute=indices.longwave_upwelling_radiation_from_net_downwelling,
+)
+
+clearness_index = Converter(
+    title="Clearness index",
+    identifier="clearness_index",
+    units="",
+    long_name="Clear index",
+    description="The ratio of shortwave downwelling radiation to extraterrestrial radiation.",
+    var_name="ci",
+    compute=indices.clearness_index,
 )

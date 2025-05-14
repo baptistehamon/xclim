@@ -9,6 +9,7 @@ import datetime as dt
 import itertools
 import re
 import string
+import textwrap
 import warnings
 from ast import literal_eval
 from collections.abc import Callable, Sequence
@@ -16,6 +17,7 @@ from fnmatch import fnmatch
 from inspect import _empty, signature  # noqa
 from typing import Any
 
+import pandas as pd
 import xarray as xr
 from boltons.funcutils import wraps
 
@@ -78,7 +80,7 @@ class AttrFormatter(string.Formatter):
         self.modifiers = modifiers
         self.mapping = mapping
 
-    def format(self, format_string: str, /, *args: Any, **kwargs: dict) -> str:
+    def format(self, format_string: str, /, *args, **kwargs: dict) -> str:
         r"""
         Format a string.
 
@@ -159,12 +161,8 @@ class AttrFormatter(string.Formatter):
         """
         baseval = self._match_value(value)
         if baseval is None:  # Not something we know how to translate
-            if format_spec in self.modifiers + [
-                "r"
-            ]:  # Woops, however a known format spec was asked
-                warnings.warn(
-                    f"Requested formatting `{format_spec}` for unknown string `{value}`."
-                )
+            if format_spec in self.modifiers + ["r"]:  # Woops, however a known format spec was asked
+                warnings.warn(f"Requested formatting `{format_spec}` for unknown string `{value}`.")
                 format_spec = ""
             return super().format_field(value, format_spec)
         # Thus, known value
@@ -257,9 +255,11 @@ def parse_doc(doc: str) -> dict:
     if doc is None:
         return {}
 
+    # Retrocompatilbity as python 3.13 does this by default
+    doc = textwrap.dedent(doc)
     out = {}
 
-    sections = re.split(r"(\w+\s?\w+)\n\s+-{3,50}", doc)  # obj.__doc__.split('\n\n')
+    sections = re.split(r"(\w+\s?\w+)\n-{3,50}", doc)  # obj.__doc__.split('\n\n')
     intro = sections.pop(0)
     if intro:
         intro_content = list(map(str.strip, intro.strip().split("\n\n")))
@@ -295,11 +295,12 @@ def _parse_parameters(section):
     """
     curr_key = None
     params = {}
+
     for line in section.split("\n"):
-        if line.startswith(" " * 6):  # description
+        if line.startswith(" "):  # description
             s = " " if params[curr_key]["description"] else ""
             params[curr_key]["description"] += s + line.strip()
-        elif line.startswith(" " * 4) and ":" in line:  # param title
+        elif not line.startswith(" ") and ":" in line:  # param title
             name, annot = line.split(":", maxsplit=1)
             curr_key = name.strip()
             params[curr_key] = {"description": ""}
@@ -320,10 +321,10 @@ def _parse_returns(section):
     params = {}
     for line in section.split("\n"):
         if line.strip():
-            if line.startswith(" " * 6):  # long_name
+            if line.startswith(" "):  # long_name
                 s = " " if params[curr_key]["long_name"] else ""
                 params[curr_key]["long_name"] += s + line.strip()
-            elif line.startswith(" " * 4):  # param title
+            elif not line.startswith(" "):  # param title
                 annot, *name = reversed(line.split(":", maxsplit=1))
                 if name:
                     curr_key = name[0].strip()
@@ -338,7 +339,7 @@ def _parse_returns(section):
 
 def merge_attributes(
     attribute: str,
-    *inputs_list: xr.DataArray | xr.Dataset,
+    *inputs_list,  # : xr.DataArray | xr.Dataset
     new_line: str = "\n",
     missing_str: str | None = None,
     **inputs_kws: xr.DataArray | xr.Dataset,
@@ -380,9 +381,7 @@ def merge_attributes(
         if attribute in in_ds.attrs or missing_str is not None:
             if in_name is not None and len(inputs) > 1:
                 merged_attr += f"{in_name}: "
-            merged_attr += in_ds.attrs.get(
-                attribute, "" if in_name is None else missing_str
-            )
+            merged_attr += in_ds.attrs.get(attribute, "" if in_name is None else missing_str)
             merged_attr += new_line
 
     if len(new_line) > 0:
@@ -392,7 +391,7 @@ def merge_attributes(
 
 def update_history(
     hist_str: str,
-    *inputs_list: xr.DataArray | xr.Dataset,
+    *inputs_list,  # : xr.DataArray | xr.Dataset,
     new_name: str | None = None,
     **inputs_kws: xr.DataArray | xr.Dataset,
 ) -> str:
@@ -437,8 +436,7 @@ def update_history(
     if len(merged_history) > 0 and not merged_history.endswith("\n"):
         merged_history += "\n"
     merged_history += (
-        f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}] {new_name or ''}: "
-        f"{hist_str} - xclim version: {__version__}"
+        f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}] {new_name or ''}: {hist_str} - xclim version: {__version__}"
     )
     return merged_history
 
@@ -473,14 +471,10 @@ def update_xclim_history(func: Callable) -> Callable:
             out = outs
 
         if not isinstance(out, xr.DataArray | xr.Dataset):
-            raise TypeError(
-                f"Decorated `update_xclim_history` received a non-xarray output from {func.__name__}."
-            )
+            raise TypeError(f"Decorated `update_xclim_history` received a non-xarray output from {func.__name__}.")
 
         da_list = [arg for arg in args if isinstance(arg, xr.DataArray)]
-        da_dict = {
-            name: arg for name, arg in kwargs.items() if isinstance(arg, xr.DataArray)
-        }
+        da_dict = {name: arg for name, arg in kwargs.items() if isinstance(arg, xr.DataArray)}
 
         # The wrapper hides how the user passed the arguments (positional or keyword)
         # Instead of having it all position, we have it all keyword-like for explicitness.
@@ -621,9 +615,7 @@ KIND_ANNOTATION = {
 }
 
 
-def _gen_parameters_section(
-    parameters: dict[str, dict[str, Any]], allowed_periods: list[str] | None = None
-) -> str:
+def _gen_parameters_section(parameters: dict[str, dict[str, Any]], allowed_periods: list[str] | None = None) -> str:
     """
     Generate the "parameters" section of the indicator docstring.
 
@@ -648,9 +640,7 @@ def _gen_parameters_section(
                 "-aliases for available options."
             )
             if allowed_periods is not None:
-                desc_str += (
-                    f" Restricted to frequencies equivalent to one of {allowed_periods}"
-                )
+                desc_str += f" Restricted to frequencies equivalent to one of {allowed_periods}"
         if param.kind == InputKind.VARIABLE:
             defstr = f"Default : `ds.{param.default}`. "
         elif param.kind == InputKind.OPTIONAL_VARIABLE:
@@ -731,16 +721,12 @@ def generate_indicator_docstring(ind) -> str:
         special += f"Based on indice :py:func:`~{ind.compute.__module__}.{ind.compute.__name__}`.\n"
         if ind.injected_parameters:
             special += "With injected parameters: "
-            special += ", ".join(
-                [f"{k}={v}" for k, v in ind.injected_parameters.items()]
-            )
+            special += ", ".join([f"{k}={v}" for k, v in ind.injected_parameters.items()])
             special += ".\n"
     if ind.keywords:
         special += f"Keywords : {ind.keywords}.\n"
 
-    parameters = _gen_parameters_section(
-        ind.parameters, getattr(ind, "allowed_periods", None)
-    )
+    parameters = _gen_parameters_section(ind.parameters, getattr(ind, "allowed_periods", None))
 
     returns = _gen_returns_section(ind.cf_attrs)
 
@@ -785,3 +771,28 @@ def get_percentile_metadata(data: xr.DataArray, prefix: str) -> dict[str, str]:
         f"{prefix}_window": data.attrs.get("window", "<unknown window>"),
         f"{prefix}_period": clim_bounds,
     }
+
+
+# Adapted from xarray.structure.merge_attrs
+def _merge_attrs_drop_conflicts(*objs):
+    """Merge attributes from different xarray objects, dropping any attributes that conflict."""
+    out = {}
+    dropped = set()
+    for obj in objs:
+        attrs = obj.attrs
+        out.update({key: value for key, value in attrs.items() if key not in out and key not in dropped})
+        out = {key: value for key, value in out.items() if key not in attrs or _equivalent_attrs(attrs[key], value)}
+        dropped |= {key for key in attrs if key not in out}
+    return out
+
+
+# Adapted from xarray.core.utils.equivalent
+def _equivalent_attrs(first, second) -> bool:
+    """Return whether two attributes are identical or not."""
+    if first is second:
+        return True
+    if isinstance(first, list) or isinstance(second, list):
+        if len(first) != len(second):
+            return False
+        return all(_equivalent_attrs(f, s) for f, s in zip(first, second, strict=False))
+    return (first == second) or (pd.isnull(first) and pd.isnull(second))

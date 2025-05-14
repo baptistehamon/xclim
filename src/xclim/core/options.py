@@ -8,6 +8,7 @@ Global or contextual options for xclim, similar to xarray.set_options.
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from inspect import signature
 
 from boltons.funcutils import wraps
@@ -21,8 +22,6 @@ CF_COMPLIANCE = "cf_compliance"
 CHECK_MISSING = "check_missing"
 MISSING_OPTIONS = "missing_options"
 RUN_LENGTH_UFUNC = "run_length_ufunc"
-SDBA_EXTRA_OUTPUT = "sdba_extra_output"
-SDBA_ENCODE_CF = "sdba_encode_cf"
 KEEP_ATTRS = "keep_attrs"
 AS_DATASET = "as_dataset"
 MAP_BLOCKS = "resample_map_blocks"
@@ -36,8 +35,6 @@ OPTIONS = {
     CHECK_MISSING: "any",
     MISSING_OPTIONS: {},
     RUN_LENGTH_UFUNC: "auto",
-    SDBA_EXTRA_OUTPUT: False,
-    SDBA_ENCODE_CF: False,
     KEEP_ATTRS: "xarray",
     AS_DATASET: False,
     MAP_BLOCKS: False,
@@ -51,13 +48,12 @@ _KEEP_ATTRS_OPTIONS = frozenset(["xarray", True, False])
 def _valid_missing_options(mopts):
     """Check if all methods and their options in mopts are valid."""
     return all(
-        meth in MISSING_METHODS  # Ensure the method is registered in MISSING_METHODS
-        and all(
-            opt in OPTIONS[MISSING_OPTIONS][meth] for opt in opts.keys()
-        )  # Check if all options provided for the method are valid
-        and MISSING_METHODS[meth].validate(
-            **opts
-        )  # Validate the options using the method's validator; defaults to True if no validation is needed
+        # Ensure the method is registered in MISSING_METHODS
+        meth in MISSING_METHODS
+        # Check if all options provided for the method are valid
+        and all(opt in OPTIONS[MISSING_OPTIONS][meth] for opt in opts.keys())
+        # Validate the options using the method's validator; defaults to True if no validation is needed
+        and MISSING_METHODS[meth].validate(**(OPTIONS[MISSING_OPTIONS][meth] | opts))
         for meth, opts in mopts.items()  # Iterate over each method and its options in mopts
     )
 
@@ -66,11 +62,9 @@ _VALIDATORS = {
     METADATA_LOCALES: _valid_locales,
     DATA_VALIDATION: _LOUDNESS_OPTIONS.__contains__,
     CF_COMPLIANCE: _LOUDNESS_OPTIONS.__contains__,
-    CHECK_MISSING: lambda meth: meth != "from_context" and meth in MISSING_METHODS,
+    CHECK_MISSING: lambda meth: meth in MISSING_METHODS or meth == "skip",
     MISSING_OPTIONS: _valid_missing_options,
     RUN_LENGTH_UFUNC: _RUN_LENGTH_UFUNC_OPTIONS.__contains__,
-    SDBA_EXTRA_OUTPUT: lambda opt: isinstance(opt, bool),
-    SDBA_ENCODE_CF: lambda opt: isinstance(opt, bool),
     KEEP_ATTRS: _KEEP_ATTRS_OPTIONS.__contains__,
     AS_DATASET: lambda opt: isinstance(opt, bool),
     MAP_BLOCKS: lambda opt: isinstance(opt, bool),
@@ -79,7 +73,7 @@ _VALIDATORS = {
 
 def _set_missing_options(mopts):
     for meth, opts in mopts.items():
-        OPTIONS[MISSING_OPTIONS][meth].update(opts)
+        OPTIONS[MISSING_OPTIONS][meth].update(**opts)
 
 
 def _set_metadata_locales(locales):
@@ -111,11 +105,11 @@ def register_missing_method(name: str) -> Callable:
     """
 
     def _register_missing_method(cls):
-        sig = signature(cls.is_missing)
+        sig = signature(cls.__init__)
         opts = {
             key: param.default if param.default != param.empty else None
             for key, param in sig.parameters.items()
-            if key not in ["self", "null", "count"]
+            if key not in ["self"]
         }
 
         MISSING_METHODS[name] = cls
@@ -224,27 +218,19 @@ class set_options:  # numpydoc ignore=PR01,PR02
     run_length_ufunc : str
         Whether to use the 1D ufunc version of run length algorithms or the dask-ready broadcasting version.
         Default is ``"auto"``, which means the latter is used for dask-backed and large arrays.
-    sdba_extra_output : bool
-        Whether to add diagnostic variables to outputs of sdba's `train`, `adjust` and `processing` operations.
-        Details about these additional variables are given in the object's docstring.
-        When activated, `adjust` will return a Dataset with `scen` and those extra diagnostics.
-        For `processing` functions, see the documentation, the output type might change, or not depending on the
-        algorithm.
-        Default: ``False``.
-    sdba_encode_cf : bool
-        Whether to encode cf coordinates in the ``map_blocks`` optimization that most adjustment methods are based on.
-        This should have no impact on the results, but should run much faster in the graph creation phase.
     keep_attrs : bool or str
         Controls attributes handling in indicators. If True, attributes from all inputs are merged
         using the `drop_conflicts` strategy and then updated with xclim-provided attributes.
         If ``as_dataset`` is also True and a dataset was passed to the ``ds`` argument of the Indicator,
-        the dataset's attributes are copied to the indicator's output. If False, attributes from the inputs are ignored.
+        the dataset's attributes are copied to the indicator's output.
+        If False, attributes from the inputs are ignored.
         If "xarray", xclim will use xarray's `keep_attrs` option.
         Note that xarray's "default" is equivalent to False. Default: ``"xarray"``.
     as_dataset : bool
         If True, indicators output datasets. If False, they output DataArrays. Default :``False``.
     resample_map_blocks : bool
-        If True, some indicators will wrap their resampling operations with `xr.map_blocks`, using :py:func:`xclim.indices.helpers.resample_map`.
+        If True, some indicators will wrap their resampling operations with `xr.map_blocks`,
+        using :py:func:`xclim.indices.helpers.resample_map`.
         This requires `flox` to be installed in order to ensure the chunking is appropriate.
 
     Examples
@@ -255,7 +241,6 @@ class set_options:  # numpydoc ignore=PR01,PR02
     >>> ds = xr.open_dataset(path_to_tas_file).tas
     >>> with xclim.set_options(metadata_locales=["fr"]):
     ...     out = xclim.atmos.tg_mean(ds)
-    ...
 
     Or to set global options:
 
@@ -275,7 +260,7 @@ class set_options:  # numpydoc ignore=PR01,PR02
             if k in _VALIDATORS and not _VALIDATORS[k](v):
                 raise ValueError(f"option {k!r} given an invalid value: {v!r}")
 
-            self.old[k] = OPTIONS[k]
+            self.old[k] = deepcopy(OPTIONS[k])
 
         self._update(kwargs)
 

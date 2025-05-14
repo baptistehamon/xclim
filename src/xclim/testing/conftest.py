@@ -53,14 +53,12 @@ def nimbus(threadsafe_data_dir, worker_id):  # numpydoc ignore=PR01
     return _nimbus(
         repo=TESTDATA_REPO_URL,
         branch=TESTDATA_BRANCH,
-        cache_dir=(
-            TESTDATA_CACHE_DIR if worker_id == "master" else threadsafe_data_dir
-        ),
+        cache_dir=(TESTDATA_CACHE_DIR if worker_id == "master" else threadsafe_data_dir),
     )
 
 
 @pytest.fixture(scope="session")
-def open_dataset(nimbus):  # numpydoc ignore=PR01
+def open_dataset(threadsafe_data_dir, worker_id):  # numpydoc ignore=PR01
     """
     Return a function that opens a dataset from the test data.
 
@@ -71,13 +69,16 @@ def open_dataset(nimbus):  # numpydoc ignore=PR01
     """
 
     def _open_session_scoped_file(file: str | os.PathLike, **xr_kwargs):
+        nimbus_kwargs = {
+            "branch": TESTDATA_BRANCH,
+            "repo": TESTDATA_REPO_URL,
+            "cache_dir": (TESTDATA_CACHE_DIR if worker_id == "master" else threadsafe_data_dir),
+        }
         xr_kwargs.setdefault("cache", True)
         xr_kwargs.setdefault("engine", "h5netcdf")
         return _open_dataset(
             file,
-            branch=TESTDATA_BRANCH,
-            repo=TESTDATA_REPO_URL,
-            cache_dir=nimbus.path,
+            nimbus_kwargs=nimbus_kwargs,
             **xr_kwargs,
         )
 
@@ -99,15 +100,11 @@ def is_matplotlib_installed(xdoctest_namespace) -> None:  # numpydoc ignore=PR01
 
 
 @pytest.fixture(scope="session", autouse=True)
-def doctest_setup(
-    xdoctest_namespace, nimbus, worker_id, open_dataset
-) -> None:  # numpydoc ignore=PR01
+def doctest_setup(xdoctest_namespace, nimbus, worker_id, open_dataset) -> None:  # numpydoc ignore=PR01
     """Gather testing data on doctest run."""
     testing_setup_warnings()
     gather_testing_data(worker_cache_dir=nimbus.path, worker_id=worker_id)
-    xdoctest_namespace.update(
-        generate_atmos(branch=TESTDATA_BRANCH, cache_dir=nimbus.path)
-    )
+    xdoctest_namespace.update(generate_atmos(nimbus=nimbus))
 
     class AttrDict(dict):  # numpydoc ignore=PR01
         """A dictionary that allows access to its keys as attributes."""

@@ -18,6 +18,7 @@ from xclim.core.units import (
     declare_relative_units,
     declare_units,
     infer_context,
+    infer_sampling_units,
     lwethickness2amount,
     pint2cfattrs,
     pint2cfunits,
@@ -85,9 +86,7 @@ class TestConvertUnitsTo:
         out = convert_units_to(pr, "mm/day", context="hydro")
         assert isinstance(out.data, dsk.Array)
 
-    @pytest.mark.parametrize(
-        "alias", [units("Celsius"), units("degC"), units("C"), units("deg_C")]
-    )
+    @pytest.mark.parametrize("alias", [units("Celsius"), units("degC"), units("C"), units("deg_C")])
     def test_temperature_aliases(self, alias):
         assert alias == units("celsius")
 
@@ -114,9 +113,7 @@ class TestConvertUnitsTo:
         assert out.attrs["standard_name"] == "rainfall_flux"
 
     def test_temperature_difference(self):
-        delta = xr.DataArray(
-            [2], attrs={"units": "K", "units_metadata": "temperature: difference"}
-        )
+        delta = xr.DataArray([2], attrs={"units": "K", "units_metadata": "temperature: difference"})
         out = convert_units_to(source=delta, target="delta_degC")
         assert out == 2
         assert out.attrs["units"] == "degC"
@@ -224,9 +221,7 @@ def test_rate2amount(pr_series):
         np.testing.assert_array_equal(am_ys, 86400 * np.array([365, 366, 365]))
 
 
-@pytest.mark.parametrize(
-    "srcfreq, exp", [("h", 3600), ("min", 60), ("s", 1), ("ns", 1e-9)]
-)
+@pytest.mark.parametrize("srcfreq, exp", [("h", 3600), ("min", 60), ("s", 1), ("ns", 1e-9)])
 def test_rate2amount_subdaily(srcfreq, exp):
     pr = xr.DataArray(
         np.ones(1000),
@@ -284,7 +279,8 @@ def test_infer_context(std_name, dim, exp):
 
 
 def test_declare_units():
-    """Test that an error is raised when parameters with type Quantified do not declare their dimensions.
+    """
+    Test that an error is raised when parameters with type Quantified do not declare their dimensions.
 
     In this example, `wo` is a Quantified parameter, but does not declare its dimension as [length].
     """
@@ -303,13 +299,13 @@ def test_declare_units():
 
 def test_declare_relative_units():
     def index(
-        data: xr.DataArray, thresh: Quantified, dthreshdt: Quantified  # noqa: F841
+        data: xr.DataArray,
+        thresh: Quantified,
+        dthreshdt: Quantified,  # noqa: F841
     ):
         return xr.DataArray(1, attrs={"units": "rad"})
 
-    index_relative = declare_relative_units(thresh="<data>", dthreshdt="<data>/[time]")(
-        index
-    )
+    index_relative = declare_relative_units(thresh="<data>", dthreshdt="<data>/[time]")(index)
     assert hasattr(index_relative, "relative_units")
 
     index_full_mm = declare_units(data="mm")(index_relative)
@@ -363,7 +359,7 @@ def test_to_agg_units(in_u, opfunc, op, exp, exp_u):
     da = xr.DataArray(
         np.ones((365,)),
         dims=("time",),
-        coords={"time": xr.cftime_range("1993-01-01", periods=365, freq="D")},
+        coords={"time": xr.date_range("1993-01-01", periods=365, freq="D")},
         attrs={"units": in_u},
     )
     if units(in_u).dimensionality == "[temperature]":
@@ -400,3 +396,22 @@ def test_temp_difference_rountrip():
     # and that converting those back to cf attrs gives the same result
     attrs = pint2cfattrs(pu)
     assert attrs == {"units": "degC", "units_metadata": "temperature: difference"}
+
+
+@pytest.mark.parametrize(
+    "freq,expm,expu", [("3D", 3, "d"), ("MS", 1, "month"), ("QS-DEC", 3, "month"), ("W", 1, "week"), ("min", 1, "min")]
+)
+def test_infer_sampling_units(freq, expm, expu):
+    time = xr.date_range("14-04-2025", periods=10, freq=freq)
+    da = xr.DataArray(list(range(10)), dims=("time",), coords={"time": time})
+    m, u = infer_sampling_units(da)
+    assert expm == m
+    assert expu == u
+
+
+def test_infer_sampling_units_errors():
+    time = xr.date_range("14-04-2025", periods=10, freq="D")
+    da = xr.DataArray(list(range(10)), dims=("time",), coords={"time": time})
+    da = da[[0, 1, 5, 6]]
+    with pytest.raises(ValueError, match="Unable to find"):
+        infer_sampling_units(da)

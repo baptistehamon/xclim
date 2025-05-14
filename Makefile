@@ -53,13 +53,10 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint: ## check style with flake8 and black
-	python -m black --check src/xclim tests
 	python -m ruff check src/xclim tests
 	python -m flake8 --config=.flake8 src/xclim tests
 	python -m vulture src/xclim tests
-	python -m nbqa black --check docs
-	python -m blackdoc --check --exclude=src/xclim/indices/__init__.py src/xclim
-	python -m blackdoc --check docs
+	python -m blackdoc --check README.rst CHANGELOG.rst CONTRIBUTING.rst docs --exclude=".py"
 	codespell src/xclim tests docs
 	python -m numpydoc lint src/xclim/*.py src/xclim/ensembles/*.py src/xclim/indices/*.py src/xclim/indicators/*.py src/xclim/testing/*.py
 	python -m deptry src
@@ -81,13 +78,13 @@ coverage: ## check code coverage quickly with the default Python
 
 autodoc-obsolete: clean-docs ## create sphinx-apidoc files (obsolete)
 	mkdir -p docs/apidoc/
-	sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim src/xclim/testing/tests
+	sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim
 
 autodoc-custom-index: clean-docs ## create sphinx-apidoc files but with special index handling for indices and indicators
 	mkdir -p docs/apidoc/
-	sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim src/xclim/testing/tests src/xclim/indicators src/xclim/indices
+	sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim src/xclim/indicators src/xclim/indices
 	rm docs/apidoc/xclim.rst
-	env SPHINX_APIDOC_OPTIONS="members,undoc-members,show-inheritance,noindex" sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim src/xclim/testing/tests
+	env SPHINX_APIDOC_OPTIONS="members,undoc-members,show-inheritance,noindex" sphinx-apidoc -o docs/apidoc/ --private --module-first src/xclim
 
 linkcheck: autodoc-custom-index ## run checks over all external links found throughout the documentation
 	$(MAKE) -C docs linkcheck

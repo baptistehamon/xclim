@@ -6,6 +6,7 @@ from typing import cast
 
 import numpy as np
 import xarray
+from scipy.stats import rv_continuous
 
 import xclim.indices.run_length as rl
 from xclim.core import DateStr, DayOfYearStr, Quantified
@@ -102,15 +103,14 @@ def corn_heat_units(
 
     .. math::
 
-        CHU_i = \frac{YX_{i} + YN_{i}}{2}
+       CHU_i = \frac{YX_{i} + YN_{i}}{2}
 
     with
 
     .. math::
 
-        YX_i & = 3.33(TX_i -10) - 0.084(TX_i -10)^2, &\text{if } TX_i > 10°C
-
-        YN_i & = 1.8(TN_i -4.44), &\text{if } TN_i > 4.44°C
+       YX_i & = 3.33(TX_i -10) - 0.084(TX_i -10)^2, &\text{if } TX_i > 10°C
+       YN_i & = 1.8(TN_i -4.44), &\text{if } TN_i > 4.44°C
 
     Where :math:`YX_{i}` and :math:`YN_{i}` is 0 when :math:`TX_i \leq 10°C` and :math:`TN_i \leq 4.44°C`, respectively.
 
@@ -196,32 +196,32 @@ def huglin_index(
 
     .. math::
 
-        HI = \sum_{i=\text{April 1}}^{\text{September 30}} \left( \frac{TX_i  + TG_i)}{2} - T_{thresh} \right) * k
+       HI = \sum_{i=\text{April 1}}^{\text{September 30}} \left( \frac{TX_i  + TG_i)}{2} - T_{thresh} \right) * k
 
     For the `smoothed` method, the day-length multiplication factor, :math:`k`, is calculated as follows:
 
     .. math::
 
-        k = f(lat) = \begin{cases}
-                        1, & \text{if } |lat| <= 40 \\
-                        1 + ((abs(lat) - 40) / 10) * 0.06, & \text{if } 40 < |lat| <= 50 \\
-                        NaN, & \text{if } |lat| > 50 \\
+       k = f(lat) = \begin{cases}
+                     1, & \text{if } | lat | <= 40 \\
+                     1 + ((abs(lat) - 40) / 10) * 0.06, & \text{if } 40 < | lat | <= 50 \\
+                     NaN, & \text{if } | lat | > 50 \\
                      \end{cases}
 
-    For compatibility with ICCLIM, `end_date` should be set to `11-01`, `method` should be set to `icclim`. The
-    day-length multiplication factor, :math:`k`, is calculated as follows:
+    For compatibility with ICCLIM, `end_date` should be set to `11-01`, `method` should be set to `icclim`.
+    The day-length multiplication factor, :math:`k`, is calculated as follows:
 
     .. math::
 
-        k = f(lat) = \begin{cases}
-                        1.0, & \text{if } |lat| <= 40 \\
-                        1.02, & \text{if } 40 < |lat| <= 42 \\
-                        1.03, & \text{if } 42 < |lat| <= 44 \\
-                        1.04, & \text{if } 44 < |lat| <= 46 \\
-                        1.05, & \text{if } 46 < |lat| <= 48 \\
-                        1.06, & \text{if } 48 < |lat| <= 50 \\
-                        NaN, & \text{if } |lat| > 50 \\
-                    \end{cases}
+       k = f(lat) = \begin{cases}
+                     1.0, & \text{if } | lat | <= 40 \\
+                     1.02, & \text{if } 40 < | lat | <= 42 \\
+                     1.03, & \text{if } 42 < | lat | <= 44 \\
+                     1.04, & \text{if } 44 < | lat | <= 46 \\
+                     1.05, & \text{if } 46 < | lat | <= 48 \\
+                     1.06, & \text{if } 48 < | lat | <= 50 \\
+                     NaN, & \text{if } | lat | > 50 \\
+                     \end{cases}
 
     A more robust day-length calculation based on latitude, calendar, day-of-year, and obliquity is available with
     `method="jones"`. See: :py:func:`xclim.indices.generic.day_lengths` or :cite:t:`hall_spatial_2010` for more
@@ -261,9 +261,7 @@ def huglin_index(
                         xarray.where(
                             (46 < abs(lat)) & (abs(lat) <= 48),
                             k_f[4],
-                            xarray.where(
-                                (48 < abs(lat)) & (abs(lat) <= 50), k_f[5], np.nan
-                            ),
+                            xarray.where((48 < abs(lat)) & (abs(lat) <= 50), k_f[5], np.nan),
                         ),
                     ),
                 ),
@@ -287,11 +285,7 @@ def huglin_index(
 
     hi: xarray.DataArray = (((tas + tasmax) / 2) - thresh).clip(min=0) * k
     hi = (
-        select_time(
-            hi, date_bounds=(start_date, end_date), include_bounds=(True, False)
-        )
-        .resample(time=freq)
-        .sum()
+        select_time(hi, date_bounds=(start_date, end_date), include_bounds=(True, False)).resample(time=freq).sum()
         * k_aggregated
     )
     hi = hi.assign_attrs(units="")
@@ -379,19 +373,19 @@ def biologically_effective_degree_days(
 
     .. math::
 
-        BEDD_i = \sum_{i=\text{April 1}}^{\text{October 31}} min\left( \left( max\left( \frac{TX_i  + TN_i)}{2} - 10, 0 \right) * k \right) + TR_{adj}, degdays_{max}\right)
+       BEDD_i = \sum_{i=\text{April 1}}^{\text{October 31}} min\left( \left( max\left( \frac{TX_i  + TN_i)}{2} - 10, 0 \right) * k \right) + TR_{adj}, degdays_{max}\right)
 
     .. math::
 
-        TR_{adj} = f(TX_{i}, TN_{i}) = \begin{cases}
-        0.25(TX_{i} - TN_{i} - 13), & \text{if } (TX_{i} - TN_{i}) > 13 \\
-        0, & \text{if } 10 < (TX_{i} - TN_{i}) < 13\\
-        0.25(TX_{i} - TN_{i} - 10), & \text{if } (TX_{i} - TN_{i}) < 10 \\
-        \end{cases}
+       TR_{adj} = f(TX_{i}, TN_{i}) = \begin{cases}
+       0.25(TX_{i} - TN_{i} - 13), & \text{if } (TX_{i} - TN_{i}) > 13 \\
+       0, & \text{if } 10 < (TX_{i} - TN_{i}) < 13\\
+       0.25(TX_{i} - TN_{i} - 10), & \text{if } (TX_{i} - TN_{i}) < 10 \\
+       \end{cases}
 
     .. math::
 
-        k = f(lat) = 1 + \left(\frac{\left| lat  \right|}{50} * 0.06,  \text{if }40 < |lat| <50, \text{else } 0\right)
+       k = f(lat) = 1 + \left(\frac{\left| lat  \right|}{50} * 0.06,  \text{if }40 < ``|lat|`` <50, \text{else } 0\right)
 
     A second version of the BEDD (`method="icclim"`) does not consider :math:`TR_{adj}` and :math:`k` and employs a
     different end date (30 September) :cite:p:`project_team_eca&d_algorithm_2013`.
@@ -399,7 +393,7 @@ def biologically_effective_degree_days(
 
     .. math::
 
-        BEDD_i = \sum_{i=\text{April 1}}^{\text{September 30}} min\left( max\left(\frac{TX_i  + TN_i)}{2} - 10, 0\right), degdays_{max}\right)
+       BEDD_i = \sum_{i=\text{April 1}}^{\text{September 30}} min\left( max\left(\frac{TX_i  + TN_i)}{2} - 10, 0\right), degdays_{max}\right)
 
     References
     ----------
@@ -427,9 +421,7 @@ def biologically_effective_degree_days(
             if isinstance(lat, int | float):
                 lat = xarray.DataArray(lat)
             lat_mask = abs(lat) <= 50
-            k = 1 + xarray.where(
-                lat_mask, ((abs(lat) - 40) * 0.06 / 10).clip(0, None), 0
-            )
+            k = 1 + xarray.where(lat_mask, ((abs(lat) - 40) * 0.06 / 10).clip(0, None), 0)
             k_aggregated = 1
         else:
             day_length = (
@@ -451,16 +443,12 @@ def biologically_effective_degree_days(
     else:
         raise NotImplementedError()
 
-    bedd: xarray.DataArray = (
-        (((tasmin + tasmax) / 2) - thresh_tasmin).clip(min=0) * k + tr_adj
-    ).clip(max=max_daily_degree_days)
+    bedd: xarray.DataArray = ((((tasmin + tasmax) / 2) - thresh_tasmin).clip(min=0) * k + tr_adj).clip(
+        max=max_daily_degree_days
+    )
 
     bedd = (
-        select_time(
-            bedd, date_bounds=(start_date, end_date), include_bounds=(True, False)
-        )
-        .resample(time=freq)
-        .sum()
+        select_time(bedd, date_bounds=(start_date, end_date), include_bounds=(True, False)).resample(time=freq).sum()
         * k_aggregated
     )
 
@@ -609,25 +597,25 @@ def dryness_index(  # numpydoc ignore=SS05
 
     .. math::
 
-        W = \sum_{\text{April 1}}^{\text{September 30}} \left( Wo + P - T_{v} - E_{s} \right)
+       W = \sum_{\text{April 1}}^{\text{September 30}} \left( Wo + P - T_{v} - E_{s} \right)
 
     or (for the Southern Hemisphere):
 
     .. math::
 
-        W = \sum_{\text{October 1}}^{\text{March 31}} \left( Wo + P - T_{v} - E_{s} \right)
+       W = \sum_{\text{October 1}}^{\text{March 31}} \left( Wo + P - T_{v} - E_{s} \right)
 
     Where :math:`T_{v}` and :math:`E_{s}` are given by the following formulae:
 
     .. math::
 
-        T_{v} = ETP * k
+       T_{v} = ETP * k
 
     and
 
     .. math::
 
-        E_{s} = \frac{ETP}{N}\left( 1 - k \right) * JPm
+       E_{s} = \frac{ETP}{N}\left( 1 - k \right) * JPm
 
     Where :math:`ETP` is evapotranspiration, :math:`N` is the number of days in the given month. :math:`k` is the
     coefficient for radiative absorption given by the vine plant architecture, and :math:`JPm` is the number of days of
@@ -635,7 +623,7 @@ def dryness_index(  # numpydoc ignore=SS05
 
     .. math::
 
-        k = \begin{cases}
+       k = \begin{cases}
             0.1, & \text{if month = April (NH) or October (SH)}  \\
             0.3, & \text{if month = May (NH) or November (SH)}  \\
             0.5, & \text{if month = June - September (NH) or December - March (SH)} \\
@@ -643,7 +631,7 @@ def dryness_index(  # numpydoc ignore=SS05
 
     .. math::
 
-        JPm = \max\left( P / 5, N \right)
+       JPm = \max\left( P / 5, N \right)
 
     References
     ----------
@@ -658,11 +646,7 @@ def dryness_index(  # numpydoc ignore=SS05
         raise ValueError(f"Freq not allowed: {freq}. Must be `YS` or `YS-JAN`")
 
     # Resample all variables to monthly totals in mm units.
-    evspsblpot = (
-        amount2lwethickness(rate2amount(evspsblpot), out_units="mm")
-        .resample(time="MS")
-        .sum()
-    )
+    evspsblpot = amount2lwethickness(rate2amount(evspsblpot), out_units="mm").resample(time="MS").sum()
     pr = amount2lwethickness(rate2amount(pr), out_units="mm").resample(time="MS").sum()
     wo = convert_units_to(wo, "mm")
 
@@ -787,7 +771,7 @@ def latitude_temperature_index(
 
     .. math::
 
-        LTI = max(TN_{j}: j = 1..12)(lat_f - |lat|)
+       LTI = max(TN_{j}: j = 1..12)(lat_f - | lat | )
 
     References
     ----------
@@ -1024,9 +1008,7 @@ def rain_season(
     def _get_first_run(run_positions, start_date, end_date):
         run_positions = select_time(run_positions, date_bounds=(start_date, end_date))
         first_start = run_positions.argmax("time")
-        return xarray.where(
-            first_start != run_positions.argmin("time"), first_start, np.nan
-        )
+        return xarray.where(first_start != run_positions.argmin("time"), first_start, np.nan)
 
     # Find the start of the rain season
     def _get_first_run_start(_pram):
@@ -1041,9 +1023,7 @@ def rain_season(
             da_stop = _pram <= thresh_dry_start
             window_dry = window_dry_start
         elif method_dry_start == "total":
-            da_stop = (
-                _pram.rolling({"time": window_dry_start}).sum() <= thresh_dry_start
-            )
+            da_stop = _pram.rolling({"time": window_dry_start}).sum() <= thresh_dry_start
             # equivalent to rolling forward in time instead, i.e. end date will be at beginning of dry run
             da_stop = da_stop.shift({"time": -(window_dry_start - 1)}, fill_value=False)
             window_dry = 1
@@ -1063,9 +1043,7 @@ def rain_season(
             da_stop = _pram <= thresh_dry_end
             run_positions = rl.rle(da_stop) >= window_dry_end
         elif method_dry_end == "total":
-            run_positions = (
-                _pram.rolling({"time": window_dry_end}).sum() <= thresh_dry_end
-            )
+            run_positions = _pram.rolling({"time": window_dry_end}).sum() <= thresh_dry_end
         else:
             raise ValueError(f"Unknown method_dry_end: {method_dry_end}.")
         return _get_first_run(run_positions, date_min_end, date_max_end)
@@ -1106,12 +1084,8 @@ def rain_season(
 
     # Compute rain season, attribute units
     out = cast(xarray.Dataset, pram.resample(time=freq).map(_get_rain_season))
-    rain_season_start = out.rain_season_start.assign_attrs(
-        units="", is_dayofyear=np.int32(1)
-    )
-    rain_season_end = out.rain_season_end.assign_attrs(
-        units="", is_dayofyear=np.int32(1)
-    )
+    rain_season_start = out.rain_season_start.assign_attrs(units="", is_dayofyear=np.int32(1))
+    rain_season_end = out.rain_season_end.assign_attrs(units="", is_dayofyear=np.int32(1))
     rain_season_length = out.rain_season_length.assign_attrs(units="days")
     return rain_season_start, rain_season_end, rain_season_length
 
@@ -1124,7 +1098,7 @@ def standardized_precipitation_index(
     pr: xarray.DataArray,
     freq: str | None = "MS",
     window: int = 1,
-    dist: str = "gamma",
+    dist: str | rv_continuous = "gamma",
     method: str = "ML",
     fitkwargs: dict | None = None,
     cal_start: DateStr | None = None,
@@ -1140,18 +1114,19 @@ def standardized_precipitation_index(
     pr : xarray.DataArray
         Daily precipitation.
     freq : str, optional
-        Resampling frequency. A monthly or daily frequency is expected. Option `None` assumes that desired resampling
-        has already been applied input dataset and will skip the resampling step.
+        Resampling frequency. A monthly or daily frequency is expected. Option `None` assumes
+        that the desired resampling has already been applied input dataset and will skip the resampling step.
     window : int
         Averaging window length relative to the resampling frequency. For example, if `freq="MS"`,
         i.e. a monthly resampling, the window is an integer number of months.
-    dist : {"gamma", "fisk"}
-        Name of the univariate distribution. (see :py:mod:`scipy.stats`).
-    method : {"APP", "ML"}
+    dist : {'gamma', 'fisk'} or `rv_continuous` function
+        Name of the univariate distribution, or a callable `rv_continuous` (see :py:mod:`scipy.stats`).
+    method : {"APP", "ML", "PWM"}
         Name of the fitting method, such as `ML` (maximum likelihood), `APP` (approximate). The approximate method
-        uses a deterministic function that does not involve any optimization.
+        uses a deterministic function that does not involve any optimization. `PWM` should be used with a `lmoments3` distribution.
     fitkwargs : dict, optional
         Kwargs passed to ``xclim.indices.stats.fit`` used to impose values of certains parameters (`floc`, `fscale`).
+        If method is `PWM`, `fitkwargs` should be empty, except for `floc` with `dist`=`gamma` which is allowed.
     cal_start : DateStr, optional
         Start date of the calibration period. A `DateStr` is expected, that is a `str` in format `"YYYY-MM-DD"`.
         Default option `None` means that the calibration period begins at the start of the input dataset.
@@ -1171,18 +1146,22 @@ def standardized_precipitation_index(
     xarray.DataArray, [unitless]
         Standardized Precipitation Index.
 
+    See Also
+    --------
+    xclim.indices.stats.standardized_index : Standardized Index.
+    xclim.indices.stats.standardized_index_fit_params : Standardized Index Fit Params.
+
     Notes
     -----
     * N-month SPI / N-day SPI is determined by choosing the `window = N` and the appropriate frequency `freq`.
     * Supported statistical distributions are: ["gamma", "fisk"], where "fisk" is scipy's implementation of
-       a log-logistic distribution
+      a log-logistic distribution
     * Supported frequencies are daily ("D"), weekly ("W"), and monthly ("MS").
-      Weekly frequency will only work if the input array has a "standard" (non-cftime) calendar.
+    * Weekly frequency will only work if the input array has a "standard" (non-cftime) calendar.
     * If `params` is given as input, it overrides the `cal_start`, `cal_end`, `freq` and `window`, `dist` and `method` options.
     * "APP" method only supports two-parameter distributions. Parameter `loc` needs to be fixed to use method `APP`.
-    * The standardized index is bounded by ±8.21. 8.21 is the largest standardized index as constrained by the float64 precision in
-      the inversion to the normal distribution.
-    * The results from `climate_indices` library can be reproduced with `method = "APP"` and `fitwkargs = {"floc": 0}`
+    * The results from `climate_indices` library can be reproduced with `method = "APP"` and `fitwkargs = {"floc": 0}`, except for the maximum
+      and minimum values allowed which are greater in xclim ±8.21, . See `xclim.indices.stats.standardized_index`
 
     References
     ----------
@@ -1204,7 +1183,7 @@ def standardized_precipitation_index(
     ...     cal_start=cal_start,
     ...     cal_end=cal_end,
     ... )  # Computing SPI-3 months using a gamma distribution for the fit
-    >>> # Fitting parameters can also be obtained first, then re-used as input.
+    >>> # Fitting parameters can also be obtained first, then reused as input.
     >>> # To properly reproduce the example, we also need to specify that we use a
     >>> # (potentially) zero-inflated distribution. For a monthly SPI, this should rarely
     >>> # make a difference.
@@ -1220,14 +1199,14 @@ def standardized_precipitation_index(
     >>> spi_3_fitted = standardized_precipitation_index(pr, params=params)
     """
     fitkwargs = fitkwargs or {}
+
     dist_methods = {"gamma": ["ML", "APP"], "fisk": ["ML", "APP"]}
-    if dist in dist_methods:
-        if method not in dist_methods[dist]:
-            raise NotImplementedError(
-                f"{method} method is not implemented for {dist} distribution."
-            )
-    else:
-        raise NotImplementedError(f"{dist} distribution is not yet implemented.")
+    if isinstance(dist, str):
+        if dist in dist_methods:
+            if method not in dist_methods[dist]:
+                raise NotImplementedError(f"{method} method is not implemented for {dist} distribution")
+        else:
+            raise NotImplementedError(f"{dist} distribution is not yet implemented.")
 
     # Precipitation is expected to be zero-inflated
     zero_inflated = True
@@ -1256,7 +1235,7 @@ def standardized_precipitation_evapotranspiration_index(
     wb: xarray.DataArray,
     freq: str | None = "MS",
     window: int = 1,
-    dist: str = "gamma",
+    dist: str | rv_continuous = "gamma",
     method: str = "ML",
     fitkwargs: dict | None = None,
     cal_start: DateStr | None = None,
@@ -1276,18 +1255,19 @@ def standardized_precipitation_evapotranspiration_index(
     wb : xarray.DataArray
         Daily water budget (pr - pet).
     freq : str, optional
-        Resampling frequency. A monthly or daily frequency is expected. Option `None` assumes that desired resampling
-        has already been applied input dataset and will skip the resampling step.
+        Resampling frequency. A monthly or daily frequency is expected. Option `None` assumes
+        that the desired resampling has already been applied input dataset and will skip the resampling step.
     window : int
         Averaging window length relative to the resampling frequency. For example, if `freq="MS"`, i.e. a monthly
         resampling, the window is an integer number of months.
-    dist : {'gamma', 'fisk'}
-        Name of the univariate distribution. (see :py:mod:`scipy.stats`).
-    method : {'APP', 'ML'}
+    dist : {'gamma', 'fisk'} or `rv_continuous` function
+        Name of the univariate distribution, or a callable `rv_continuous` (see :py:mod:`scipy.stats`).
+    method : {"APP", "ML", "PWM"}
         Name of the fitting method, such as `ML` (maximum likelihood), `APP` (approximate). The approximate method
-        uses a deterministic function that doesn't involve any optimization.
+        uses a deterministic function that does not involve any optimization. `PWM` should be used with a `lmoments3` distribution.
     fitkwargs : dict, optional
         Kwargs passed to ``xclim.indices.stats.fit`` used to impose values of certains parameters (`floc`, `fscale`).
+        If method is `PWM`, `fitkwargs` should be empty, except for `floc` with `dist`=`gamma` which is allowed.
     cal_start : DateStr, optional
         Start date of the calibration period. A `DateStr` is expected, that is a `str` in format `"YYYY-MM-DD"`.
         Default option `None` means that the calibration period begins at the start of the input dataset.
@@ -1310,17 +1290,18 @@ def standardized_precipitation_evapotranspiration_index(
     See Also
     --------
     standardized_precipitation_index : Standardized Precipitation Index.
+    xclim.indices.stats.standardized_index : Standardized Index.
+    xclim.indices.stats.standardized_index_fit_params : Standardized Index Fit Params.
     """
     fitkwargs = fitkwargs or {}
 
     dist_methods = {"gamma": ["ML", "APP"], "fisk": ["ML", "APP"]}
-    if dist in dist_methods:
-        if method not in dist_methods[dist]:
-            raise NotImplementedError(
-                f"{method} method is not implemented for {dist} distribution"
-            )
-    else:
-        raise NotImplementedError(f"{dist} distribution is not yet implemented.")
+    if isinstance(dist, str):
+        if dist in dist_methods:
+            if method not in dist_methods[dist]:
+                raise NotImplementedError(f"{method} method is not implemented for {dist} distribution")
+        else:
+            raise NotImplementedError(f"{dist} distribution is not yet implemented.")
 
     # Water budget is not expected to be zero-inflated
     zero_inflated = False
@@ -1342,9 +1323,7 @@ def standardized_precipitation_evapotranspiration_index(
 
 
 @declare_units(tas="[temperature]")
-def qian_weighted_mean_average(
-    tas: xarray.DataArray, dim: str = "time"
-) -> xarray.DataArray:
+def qian_weighted_mean_average(tas: xarray.DataArray, dim: str = "time") -> xarray.DataArray:
     r"""
     Binomial smoothed, five-day weighted mean average temperature.
 
@@ -1372,7 +1351,7 @@ def qian_weighted_mean_average(
 
     .. math::
 
-        \overline{X}_{n} = \frac{X_{n-2} + 4X_{n-1} + 6X_{n} + 4X_{n+1} + X_{n+2}}{16}
+       \overline{X}_{n} = \frac{X_{n-2} + 4X_{n-1} + 6X_{n} + 4X_{n+1} + X_{n+2}}{16}
 
     References
     ----------
@@ -1381,9 +1360,7 @@ def qian_weighted_mean_average(
     units = tas.attrs["units"]
 
     weights = xarray.DataArray([0.0625, 0.25, 0.375, 0.25, 0.0625], dims=["window"])
-    weighted_mean: xarray.DataArray = (
-        tas.rolling({dim: 5}, center=True).construct("window").dot(weights)
-    )
+    weighted_mean: xarray.DataArray = tas.rolling({dim: 5}, center=True).construct("window").dot(weights)
     weighted_mean = weighted_mean.assign_attrs(units=units)
     return weighted_mean
 
@@ -1440,7 +1417,7 @@ def effective_growing_degree_days(
 
     .. math::
 
-        EGDD_i = \sum_{i=\text{j_{start}}^{\text{j_{end}}} max\left(TG - Thresh, 0 \right)
+       EGDD_i = \sum_{i=\text{j_{start}}^{\text{j_{end}}} max\left(TG - Thresh, 0 \right)
 
     Where :math:`TG` is the mean daly temperature, and :math:`j_{start}` and :math:`j_{end}` are the start and end dates
     of the growing season. The growing season start date methodology is determined via the `method` flag.
@@ -1462,15 +1439,11 @@ def effective_growing_degree_days(
     tas.attrs["units"] = "degC"
 
     if method.lower() == "bootsma":
-        fda = first_day_temperature_above(
-            tas=tas, thresh=thresh_with_units, window=1, freq=freq
-        )
+        fda = first_day_temperature_above(tas=tas, thresh=thresh_with_units, window=1, freq=freq)
         start = fda + 10
     elif method.lower() == "qian":
         tas_weighted = qian_weighted_mean_average(tas=tas, dim=dim)
-        start = first_day_temperature_above(
-            tas_weighted, thresh=thresh_with_units, window=5, freq=freq
-        )
+        start = first_day_temperature_above(tas_weighted, thresh=thresh_with_units, window=5, freq=freq)
     else:
         raise NotImplementedError(f"Method: {method}.")
 
@@ -1487,9 +1460,7 @@ def effective_growing_degree_days(
     )
 
     deg_days = (tas - thresh).clip(min=0)
-    egdd: xarray.DataArray = aggregate_between_dates(
-        deg_days, start=start, end=end, freq=freq
-    )
+    egdd: xarray.DataArray = aggregate_between_dates(deg_days, start=start, end=end, freq=freq)
     egdd = to_agg_units(egdd, tas, op="integral")
     return egdd
 
@@ -1534,14 +1505,10 @@ def hardiness_zones(  # numpydoc ignore=SS05
         zone_min, zone_max, zone_step = "-15 degC", "20 degC", "5 degC"
 
     else:
-        raise NotImplementedError(
-            f"Method must be one of `usda` or `anbg`. Got {method}."
-        )
+        raise NotImplementedError(f"Method must be one of `usda` or `anbg`. Got {method}.")
 
     tn_min_rolling = tn_min(tasmin, freq=freq).rolling(time=window).mean()
-    zones: xarray.DataArray = get_zones(
-        tn_min_rolling, zone_min=zone_min, zone_max=zone_max, zone_step=zone_step
-    )
+    zones: xarray.DataArray = get_zones(tn_min_rolling, zone_min=zone_min, zone_max=zone_max, zone_step=zone_step)
 
     zones = zones.assign_attrs(units="")
     return zones
@@ -1573,9 +1540,7 @@ def _chill_portion_one_season(tas_K):
 
     inter_E = np.zeros_like(tas_K)
     for i in range(1, tas_K.shape[-1]):
-        inter_E[..., i] = _accumulate_intermediate(
-            inter_E[..., i - 1], xi[..., i - 1], xs[..., i], ak1[..., i]
-        )
+        inter_E[..., i] = _accumulate_intermediate(inter_E[..., i - 1], xi[..., i - 1], xs[..., i], ak1[..., i])
     delta = np.where(inter_E >= 1, inter_E * xi, 0)
 
     return delta
@@ -1596,9 +1561,7 @@ def _apply_chill_portion_one_season(tas_K):
 
 
 @declare_units(tas="[temperature]")
-def chill_portions(
-    tas: xarray.DataArray, freq: str = "YS", **indexer
-) -> xarray.DataArray:
+def chill_portions(tas: xarray.DataArray, freq: str = "YS", **indexer) -> xarray.DataArray:
     r"""
     Chill portion based on the dynamic model.
 
@@ -1648,18 +1611,12 @@ def chill_portions(
     >>> tas_hourly = make_hourly_temperature(tasmin, tasmax)
     >>> cp = chill_portions(tasmin)
     """
-    tas_K: xarray.DataArray = select_time(
-        convert_units_to(tas, "K"), drop=True, **indexer
-    )
-    return resample_map(
-        tas_K, "time", freq, _apply_chill_portion_one_season
-    ).assign_attrs(units="")
+    tas_K: xarray.DataArray = select_time(convert_units_to(tas, "K"), drop=True, **indexer)
+    return resample_map(tas_K, "time", freq, _apply_chill_portion_one_season).assign_attrs(units="")
 
 
 @declare_units(tas="[temperature]")
-def chill_units(
-    tas: xarray.DataArray, positive_only: bool = False, freq: str = "YS"
-) -> xarray.DataArray:
+def chill_units(tas: xarray.DataArray, positive_only: bool = False, freq: str = "YS") -> xarray.DataArray:
     """
     Chill units using the Utah model.
 

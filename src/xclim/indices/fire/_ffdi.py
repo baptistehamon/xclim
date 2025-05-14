@@ -12,6 +12,7 @@ with any differences described in the documentation for each index. Users are en
 this module and consult :cite:t:`ffdi-finkele_2006` for a full description of the methods used to calculate each
 index.
 """
+
 # This file is structured in the following way:
 # Section 1: individual codes, numba-accelerated and vectorized functions.
 # Section 2: Exposed methods and indices.
@@ -41,7 +42,8 @@ __all__ = [
     cache=True,
 )
 def _keetch_byram_drought_index(p, t, pa, kbdi0, kbdi: float):  # pragma: no cover
-    """Compute the Keetch-Byram drought (KBDI) index.
+    """
+    Compute the Keetch-Byram drought (KBDI) index.
 
     Parameters
     ----------
@@ -94,7 +96,8 @@ def _keetch_byram_drought_index(p, t, pa, kbdi0, kbdi: float):  # pragma: no cov
     cache=True,
 )
 def _griffiths_drought_factor(p, smd, lim, df):  # pragma: no cover
-    """Compute the Griffiths drought factor.
+    """
+    Compute the Griffiths drought factor.
 
     Parameters
     ----------
@@ -153,12 +156,7 @@ def _griffiths_drought_factor(p, smd, lim, df):  # pragma: no cover
                 xlim = 75 / (270.525 - 1.267 * smd[d])
             x = min(x, xlim)
 
-        dfw = (
-            10.5
-            * (1 - np.exp(-(smd[d] + 30) / 40))
-            * (41 * x**2 + x)
-            / (40 * x**2 + x + 1)
-        )
+        dfw = 10.5 * (1 - np.exp(-(smd[d] + 30) / 40)) * (41 * x**2 + x) / (40 * x**2 + x + 1)
 
         if lim == 1:
             if smd[d] < 25.0:
@@ -233,7 +231,8 @@ def keetch_byram_drought_index(
     """
 
     def _keetch_byram_drought_index_pass(_pr, _tasmax, _pr_annual, _kbdi0):
-        """Pass inputs on to guvectorized function `_keetch_byram_drought_index`.
+        """
+        Pass inputs on to guvectorized function `_keetch_byram_drought_index`.
 
         This function is actually only required as `xr.apply_ufunc` will not receive
         a guvectorized function which has the output(s) in its function signature.
@@ -312,7 +311,8 @@ def griffiths_drought_factor(
     """
 
     def _griffiths_drought_factor_pass(_pr, _smd, _lim):
-        """Pass inputs on to guvectorized function `_griffiths_drought_factor`.
+        """
+        Pass inputs on to guvectorized function `_griffiths_drought_factor`.
 
         This function is actually only required as xr.apply_ufunc will not receive
         a guvectorized function which has the output(s) in its function signature.
@@ -397,8 +397,6 @@ def mcarthur_forest_fire_danger_index(
     hurs = convert_units_to(hurs, "%")
     sfcWind = convert_units_to(sfcWind, "km/h")
 
-    ffdi = drought_factor**0.987 * np.exp(
-        0.0338 * tasmax - 0.0345 * hurs + 0.0234 * sfcWind + 0.243147
-    )
+    ffdi = drought_factor**0.987 * np.exp(0.0338 * tasmax - 0.0345 * hurs + 0.0234 * sfcWind + 0.243147)
     ffdi.attrs["units"] = ""
     return ffdi

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 import xarray
@@ -73,7 +73,7 @@ def cold_spell_duration_index(
     freq: str = "YS",
     resample_before_rl: bool = True,
     bootstrap: bool = False,  # noqa  # noqa
-    op: str = "<",
+    op: Literal["<", "<=", "lt", "le"] = "<",
 ) -> xarray.DataArray:
     r"""
     Cold spell duration index.
@@ -429,9 +429,9 @@ def multiday_temperature_swing(
     thresh_tasmin: Quantified = "0 degC",
     thresh_tasmax: Quantified = "0 degC",
     window: int = 1,
-    op: str = "mean",
-    op_tasmin: str = "<=",
-    op_tasmax: str = ">",
+    op: Literal["mean", "sum", "max", "min", "std", "count"] = "mean",
+    op_tasmin: Literal["<", "<=", "lt", "le"] = "<=",
+    op_tasmax: Literal[">", ">=", "gt", "ge"] = ">",
     freq: str = "YS",
     resample_before_rl: bool = True,
 ) -> xarray.DataArray:
@@ -453,7 +453,7 @@ def multiday_temperature_swing(
         The temperature threshold needed to trigger a thaw event.
     window : int
         The minimal length of spells to be included in the statistics.
-    op : {'mean', 'sum', 'max', 'min', 'std', 'count'}
+    op : {"mean", "sum", "max", "min", "std", "count"}
         The statistical operation to use when reducing the list of spell lengths.
     op_tasmin : {"<", "<=", "lt", "le"}
         Comparison operation for tasmin. Default: "<=".
@@ -477,7 +477,7 @@ def multiday_temperature_swing(
 
     .. math::
 
-        TX_{i} > 0℃ \land TN_{i} <  0℃
+       TX_{i} > 0℃ \land TN_{i} <  0℃
 
     This indice returns a given statistic of the found lengths, optionally dropping those shorter than the `window`
     argument. For example, `window=1` and `op='sum'` returns the same value as :py:func:`daily_freezethaw_cycles`.
@@ -515,7 +515,7 @@ def daily_temperature_range(
     tasmin: xarray.DataArray,
     tasmax: xarray.DataArray,
     freq: str = "YS",
-    op: str | Callable = "mean",
+    op: Literal["min", "max", "mean", "std"] | Callable = "mean",
 ) -> xarray.DataArray:
     r"""
     Statistics of daily temperature range.
@@ -530,7 +530,7 @@ def daily_temperature_range(
         Maximum daily temperature.
     freq : str
         Resampling frequency.
-    op : {'min', 'max', 'mean', 'std'} or func
+    op : {"min", "max", "mean", "std"} or Callable
         Reduce operation. Can either be a DataArray method or a function that can be applied to a DataArray.
 
     Returns
@@ -547,7 +547,7 @@ def daily_temperature_range(
 
     .. math::
 
-        DTR_j = \frac{ \sum_{i=1}^I (TX_{ij} - TN_{ij}) }{I}
+       DTR_j = \frac{ \sum_{i=1}^I (TX_{ij} - TN_{ij}) }{I}
     """
     tasmax = convert_units_to(tasmax, tasmin)
     dtr = tasmax - tasmin
@@ -598,9 +598,7 @@ def daily_temperature_range_variability(
 
 
 @declare_units(tasmax="[temperature]", tasmin="[temperature]")
-def extreme_temperature_range(
-    tasmin: xarray.DataArray, tasmax: xarray.DataArray, freq: str = "YS"
-) -> xarray.DataArray:
+def extreme_temperature_range(tasmin: xarray.DataArray, tasmax: xarray.DataArray, freq: str = "YS") -> xarray.DataArray:
     r"""
     Extreme intra-period temperature range.
 
@@ -627,7 +625,7 @@ def extreme_temperature_range(
 
     .. math::
 
-        ETR_j = max(TX_{ij}) - min(TN_{ij})
+       ETR_j = max(TX_{ij}) - min(TN_{ij})
     """
     tasmax = convert_units_to(tasmax, tasmin)
     tx_max = tasmax.resample(time=freq).max(dim="time")
@@ -652,7 +650,7 @@ def heat_wave_frequency(
     thresh_tasmax: Quantified = "30 degC",
     window: int = 3,
     freq: str = "YS",
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
     resample_before_rl: bool = True,
 ) -> xarray.DataArray:
     r"""
@@ -693,7 +691,8 @@ def heat_wave_frequency(
     characterize the occurrence of hot weather events that can result in adverse health outcomes for Canadian
     communities :cite:p:`casati_regional_2013`.
 
-    In :cite:t:`robinson_definition_2001`, the parameters would be `thresh_tasmin=27.22, thresh_tasmax=39.44, window=2` (81F, 103F).
+    In :cite:t:`robinson_definition_2001`, the parameters would be ``thresh_tasmin=27.22,
+    thresh_tasmax=39.44, window=2`` (81F, 103F).
 
     References
     ----------
@@ -703,9 +702,7 @@ def heat_wave_frequency(
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
 
     constrain = (">", ">=")
-    cond = (compare(tasmin, op, thresh_tasmin, constrain)) & (
-        compare(tasmax, op, thresh_tasmax, constrain)
-    )
+    cond = (compare(tasmin, op, thresh_tasmin, constrain)) & (compare(tasmax, op, thresh_tasmax, constrain))
 
     out = rl.resample_and_rl(
         cond,
@@ -731,16 +728,16 @@ def heat_wave_max_length(
     thresh_tasmax: Quantified = "30 degC",
     window: int = 3,
     freq: str = "YS",
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
     resample_before_rl: bool = True,
 ) -> xarray.DataArray:
     r"""
     Heat wave max length.
 
     Maximum length of heat waves over a given period. A heat wave is defined as an event where the minimum and maximum
-    daily temperature both exceeds specific thresholds over a minimum number of days.
+    daily temperature both exceed specific thresholds over a minimum number of days.
 
-    By definition heat_wave_max_length must be >= window.
+    By definition, heat_wave_max_length must be >= window.
 
     Parameters
     ----------
@@ -785,9 +782,7 @@ def heat_wave_max_length(
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
 
     constrain = (">", ">=")
-    cond = (compare(tasmin, op, thresh_tasmin, constrain)) & (
-        compare(tasmax, op, thresh_tasmax, constrain)
-    )
+    cond = (compare(tasmin, op, thresh_tasmin, constrain)) & (compare(tasmax, op, thresh_tasmax, constrain))
     out = rl.resample_and_rl(
         cond,
         resample_before_rl,
@@ -812,15 +807,15 @@ def heat_wave_total_length(
     thresh_tasmax: Quantified = "30 degC",
     window: int = 3,
     freq: str = "YS",
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
     resample_before_rl: bool = True,
 ) -> xarray.DataArray:
     r"""
     Heat wave total length.
 
     Total length of heat waves over a given period. A heat wave is defined as an event where the minimum and maximum
-    daily temperature both exceeds specific thresholds over a minimum number of days.
-    This the sum of all days in such events.
+    daily temperature both exceed specific thresholds over a minimum number of days.
+    This is the sum of all days in such events.
 
     Parameters
     ----------
@@ -855,9 +850,7 @@ def heat_wave_total_length(
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
 
     constrain = (">", ">=")
-    cond = compare(tasmin, op, thresh_tasmin, constrain) & compare(
-        tasmax, op, thresh_tasmax, constrain
-    )
+    cond = compare(tasmin, op, thresh_tasmin, constrain) & compare(tasmax, op, thresh_tasmax, constrain)
     out = rl.resample_and_rl(
         cond,
         resample_before_rl,
@@ -917,9 +910,9 @@ def liquid_precip_ratio(
 
     .. math::
 
-        PR_{ij} = \sum_{i=a}^{b} PR_i
+       PR_{ij} = \sum_{i=a}^{b} PR_i
 
-        PRwet_{ij}
+       PRwet_{ij}
     """
     if prsn is None and tas is not None:
         prsn = snowfall_approximation(pr, tas=tas, thresh=thresh, method="binary")
@@ -1098,13 +1091,13 @@ def rain_on_frozen_ground_days(
 
     .. math::
 
-        PR_{i} > Threshold [mm]
+       PR_{i} > Threshold [mm]
 
     and where
 
     .. math::
 
-        TG_{i} ≤ 0℃
+       TG_{i} ≤ 0℃
 
     is true for continuous periods where :math:`i ≥ 7`
     """
@@ -1165,9 +1158,7 @@ def high_precip_low_temp(
     To compute the number of days with intense rainfall while minimum temperatures dip below -0.2C:
     >>> pr = xr.open_dataset(path_to_pr_file).pr
     >>> tasmin = xr.open_dataset(path_to_tasmin_file).tasmin
-    >>> high_precip_low_temp(
-    ...     pr, tas=tasmin, pr_thresh="10 mm/d", tas_thresh="-0.2 degC"
-    ... )
+    >>> high_precip_low_temp(pr, tas=tasmin, pr_thresh="10 mm/d", tas_thresh="-0.2 degC")
     """
     pr_thresh = convert_units_to(pr_thresh, pr, context="hydro")
     tas_thresh = convert_units_to(tas_thresh, tas)
@@ -1185,12 +1176,12 @@ def days_over_precip_thresh(
     thresh: Quantified = "1 mm/day",
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Number of wet days with daily precipitation over a given percentile.
 
-    Number of days over period where the precipitation is above a threshold defining wet days and above a given
+    Number of days over a period where the precipitation is above a threshold defining wet days and above a given
     percentile for that day.
 
     Parameters
@@ -1209,8 +1200,8 @@ def days_over_precip_thresh(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1247,13 +1238,13 @@ def fraction_over_precip_thresh(
     thresh: Quantified = "1 mm/day",
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Fraction of precipitation due to wet days with daily precipitation over a given percentile.
 
-    Percentage of the total precipitation over period occurring in days when the precipitation is above a threshold
-    defining wet days and above a given percentile for that day.
+    The percentage of the total precipitation over a period occurring for days when the precipitation is above
+    a threshold defining wet days and above a given percentile for that day.
 
     Parameters
     ----------
@@ -1271,8 +1262,8 @@ def fraction_over_precip_thresh(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1291,16 +1282,10 @@ def fraction_over_precip_thresh(
 
     constrain = (">", ">=")
     # Total precip during wet days over period
-    total = (
-        pr.where(compare(pr, op, thresh, constrain), 0)
-        .resample(time=freq)
-        .sum(dim="time")
-    )
+    total = pr.where(compare(pr, op, thresh, constrain), 0).resample(time=freq).sum(dim="time")
 
     # Compute the days when precip is both over the wet day threshold and the percentile threshold.
-    over = (
-        pr.where(compare(pr, op, tp, constrain), 0).resample(time=freq).sum(dim="time")
-    )
+    over = pr.where(compare(pr, op, tp, constrain), 0).resample(time=freq).sum(dim="time")
 
     out = over / total
     out.attrs["units"] = ""
@@ -1314,7 +1299,7 @@ def tg90p(
     tas_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily mean temperature over the 90th percentile.
@@ -1334,8 +1319,8 @@ def tg90p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1373,7 +1358,7 @@ def tg10p(
     tas_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = "<",
+    op: Literal[">", ">=", "gt", "ge"] = "<",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily mean temperature below the 10th percentile.
@@ -1393,8 +1378,8 @@ def tg10p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {"<", "<=", "lt", "le"}
         Comparison operation. Default: "<".
 
@@ -1432,7 +1417,7 @@ def tn90p(
     tasmin_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily minimum temperature over the 90th percentile.
@@ -1452,8 +1437,8 @@ def tn90p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1491,7 +1476,7 @@ def tn10p(
     tasmin_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = "<",
+    op: Literal["<", "<=", "lt", "le"] = "<",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily minimum temperature below the 10th percentile.
@@ -1511,8 +1496,8 @@ def tn10p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {"<", "<=", "lt", "le"}
         Comparison operation. Default: "<".
 
@@ -1550,7 +1535,7 @@ def tx90p(
     tasmax_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal["<", "<=", "lt", "le"] = ">",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily maximum temperature over the 90th percentile.
@@ -1570,8 +1555,8 @@ def tx90p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1609,7 +1594,7 @@ def tx10p(
     tasmax_per: xarray.DataArray,
     freq: str = "YS",
     bootstrap: bool = False,  # noqa
-    op: str = "<",
+    op: Literal["<", "<=", "lt", "le"] = "<",
 ) -> xarray.DataArray:
     r"""
     Number of days with daily maximum temperature below the 10th percentile.
@@ -1629,8 +1614,8 @@ def tx10p(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {"<", "<=", "lt", "le"}
         Comparison operation. Default: "<".
 
@@ -1673,7 +1658,7 @@ def tx_tn_days_above(
     thresh_tasmin: Quantified = "22 degC",
     thresh_tasmax: Quantified = "30 degC",
     freq: str = "YS",
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Number of days with both hot maximum and minimum daily temperatures.
@@ -1709,22 +1694,19 @@ def tx_tn_days_above(
 
     .. math::
 
-        TX_{ij} > TX_{thresh} [℃]
+       TX_{ij} > TX_{thresh} [℃]
 
     and where:
 
     .. math::
 
-        TN_{ij} > TN_{thresh} [℃]
+       TN_{ij} > TN_{thresh} [℃]
     """
     thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
 
     constrain = (">", ">=")
-    events = (
-        compare(tasmin, op, thresh_tasmin, constrain)
-        & compare(tasmax, op, thresh_tasmax, constrain)
-    ) * 1
+    events = (compare(tasmin, op, thresh_tasmin, constrain) & compare(tasmax, op, thresh_tasmax, constrain)) * 1
     out = events.resample(time=freq).sum(dim="time")
     return to_agg_units(out, tasmin, "count")
 
@@ -1738,7 +1720,7 @@ def warm_spell_duration_index(
     freq: str = "YS",
     resample_before_rl: bool = True,
     bootstrap: bool = False,  # noqa
-    op: str = ">",
+    op: Literal[">", ">=", "gt", "ge"] = ">",
 ) -> xarray.DataArray:
     r"""
     Warm spell duration index.
@@ -1765,8 +1747,8 @@ def warm_spell_duration_index(
         Bootstrapping is only useful when the percentiles are computed on a part of the studied sample.
         This period, common to percentiles and the sample must be bootstrapped to avoid inhomogeneities with
         the rest of the time series.
-        Keep bootstrap to False when there is no common period, it would give wrong results
-        plus, bootstrapping is computationally expensive.
+        Do not enable bootstrap when there is no common period, otherwise it will provide the wrong results.
+        Note that bootstrapping is computationally expensive.
     op : {">", ">=", "gt", "ge"}
         Comparison operation. Default: ">".
 
@@ -1844,9 +1826,7 @@ def winter_rain_ratio(
     return ratio
 
 
-@declare_units(
-    snd="[length]", sfcWind="[speed]", snd_thresh="[length]", sfcWind_thresh="[speed]"
-)
+@declare_units(snd="[length]", sfcWind="[speed]", snd_thresh="[length]", sfcWind_thresh="[speed]")
 def blowing_snow(
     snd: xarray.DataArray,
     sfcWind: xarray.DataArray,  # noqa
@@ -1895,9 +1875,7 @@ def blowing_snow(
 
 
 @declare_units(pr="[precipitation]", evspsbl="[precipitation]")
-def water_cycle_intensity(
-    pr: xarray.DataArray, evspsbl: xarray.DataArray, freq="YS"
-) -> xarray.DataArray:
+def water_cycle_intensity(pr: xarray.DataArray, evspsbl: xarray.DataArray, freq="YS") -> xarray.DataArray:
     """
     Water cycle intensity.
 
